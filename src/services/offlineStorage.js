@@ -262,6 +262,80 @@ export async function downloadJuz(juzNumber, convention = 'indopak', reciter, on
 }
 
 /**
+ * Download ALL 114 Surahs with a single click for complete offline Quran tilawah
+ * @param {object} reciter { id, name }
+ * @param {function} onProgress callback
+ * @param {AbortSignal} abortSignal optional abort signal
+ */
+export async function downloadAllSurahs(reciter, onProgress = () => {}, abortSignal = null) {
+  const TOTAL_QURAN_AYAHS = 6236;
+  let downloadedAyahsCount = 0;
+  const reciterId = reciter?.id || 'ar.alafasy';
+
+  for (let sNum = 1; sNum <= 114; sNum++) {
+    if (abortSignal && abortSignal.aborted) {
+      throw new Error('Download cancelled by user.');
+    }
+
+    const sMeta = SURAHS.find(s => s.number === sNum);
+    const sName = sMeta?.englishName || `Surah ${sNum}`;
+    const key = getOfflineKey('surah', sNum, reciterId);
+
+    // If already complete, add to cumulative count and report
+    const index = getOfflineIndex();
+    if (index[key]?.isComplete) {
+      downloadedAyahsCount += sMeta?.numberOfAyahs || 0;
+      onProgress({
+        currentSurah: sNum,
+        totalSurahs: 114,
+        surahName: sName,
+        ayahCurrent: sMeta?.numberOfAyahs || 0,
+        ayahTotal: sMeta?.numberOfAyahs || 0,
+        currentAyahGlobal: downloadedAyahsCount,
+        totalAyahsGlobal: TOTAL_QURAN_AYAHS,
+        percentage: Math.min(100, Math.round((downloadedAyahsCount / TOTAL_QURAN_AYAHS) * 100))
+      });
+      continue;
+    }
+
+    // Download this Surah
+    await downloadSurah(
+      sNum,
+      reciter,
+      (p) => {
+        const globalCurrent = downloadedAyahsCount + p.current;
+        onProgress({
+          currentSurah: sNum,
+          totalSurahs: 114,
+          surahName: sName,
+          ayahCurrent: p.current,
+          ayahTotal: p.total,
+          currentAyahGlobal: globalCurrent,
+          totalAyahsGlobal: TOTAL_QURAN_AYAHS,
+          percentage: Math.min(100, Math.round((globalCurrent / TOTAL_QURAN_AYAHS) * 100))
+        });
+      },
+      abortSignal
+    );
+
+    downloadedAyahsCount += sMeta?.numberOfAyahs || 0;
+  }
+
+  onProgress({
+    currentSurah: 114,
+    totalSurahs: 114,
+    surahName: 'All 114 Surahs Complete',
+    ayahCurrent: TOTAL_QURAN_AYAHS,
+    ayahTotal: TOTAL_QURAN_AYAHS,
+    currentAyahGlobal: TOTAL_QURAN_AYAHS,
+    totalAyahsGlobal: TOTAL_QURAN_AYAHS,
+    percentage: 100
+  });
+
+  return { success: true, count: 114 };
+}
+
+/**
  * Delete a downloaded Surah or Juz from offline storage
  */
 export async function deleteOfflineItem(manifestKey) {

@@ -19,6 +19,7 @@ import {
   isItemDownloaded,
   downloadSurah,
   downloadJuz,
+  downloadAllSurahs,
   deleteOfflineItem,
   formatBytes,
   getStorageEstimate,
@@ -163,6 +164,58 @@ export function OfflineModal({
       setAbortController(null);
     }
   };
+
+  // Handle Download for All 114 Surahs (Complete Quran) with 1-click
+  const handleDownloadAll = async () => {
+    if (activeDownloadKey) {
+      if (onShowToast) onShowToast('A download is already in progress.');
+      return;
+    }
+
+    const controller = new AbortController();
+    setAbortController(controller);
+    setActiveDownloadKey('all_surahs');
+    setDownloadProgress({ current: 0, total: 114, percentage: 0, title: 'Complete Quran (All 114 Surahs)' });
+
+    try {
+      await downloadAllSurahs(
+        reciter,
+        (p) => {
+          setDownloadProgress({
+            current: p.currentSurah,
+            total: p.totalSurahs,
+            percentage: p.percentage,
+            title: `Surah ${p.currentSurah} of 114 (${p.surahName})`,
+            subtitle: `Ayah ${p.ayahCurrent || 0} / ${p.ayahTotal || 0} • Overall ${p.currentAyahGlobal || 0} / 6,236 Ayahs`
+          });
+        },
+        controller.signal
+      );
+      setOfflineIndex(getOfflineIndex());
+      refreshStorage();
+      if (onShowToast) onShowToast('✓ Complete Quran (All 114 Surahs) downloaded for offline playback!');
+    } catch (err) {
+      if (err.name !== 'AbortError' && !err.message.includes('cancelled')) {
+        console.error('Download all error:', err);
+        alert(`Download interrupted: ${err.message}`);
+      }
+    } finally {
+      setActiveDownloadKey(null);
+      setDownloadProgress(null);
+      setAbortController(null);
+    }
+  };
+
+  // Count how many of the 114 Surahs are fully downloaded
+  const downloadedSurahCount = useMemo(() => {
+    let count = 0;
+    for (let i = 1; i <= 114; i++) {
+      if (offlineIndex[getOfflineKey('surah', i, reciterId)]?.isComplete) {
+        count++;
+      }
+    }
+    return count;
+  }, [offlineIndex, reciterId]);
 
   // Cancel in-progress download
   const handleCancelDownload = () => {
@@ -445,6 +498,50 @@ export function OfflineModal({
                 </div>
               </div>
 
+              {/* 1-Click Complete Quran Download Card in Tab 1 */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(5,150,105,0.08), rgba(16,185,129,0.04))',
+                  border: '1px solid var(--primary)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem'
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <BookOpen size={16} color="var(--primary)" />
+                    <span>Download Complete Quran (All 114 Surahs)</span>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                    {downloadedSurahCount === 114
+                      ? '✓ All 114 Surahs are fully downloaded on this device'
+                      : `${downloadedSurahCount} of 114 Surahs downloaded • 1-click batch download (~1.2 GB)`}
+                  </div>
+                </div>
+
+                {downloadedSurahCount === 114 ? (
+                  <span className="badge-tag" style={{ background: 'var(--primary-light)', color: 'var(--primary)' }}>
+                    <CheckCircle2 size={14} /> All 114 Ready
+                  </span>
+                ) : (
+                  <button
+                    className="action-btn"
+                    onClick={handleDownloadAll}
+                    disabled={Boolean(activeDownloadKey)}
+                    style={{ borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 600 }}
+                    id="btn-download-all-tab1"
+                  >
+                    <DownloadCloud size={15} />
+                    <span>{downloadedSurahCount > 0 ? `Download Remaining (${114 - downloadedSurahCount})` : 'Download All 114 Surahs'}</span>
+                  </button>
+                )}
+              </div>
+
               {/* Informational Guidance */}
               <div
                 style={{
@@ -469,6 +566,54 @@ export function OfflineModal({
           {/* TAB 2: All 114 Surahs */}
           {activeTab === 'surahs' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {/* 1-Click Complete Quran Download Banner in Tab 2 */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(5,150,105,0.12), rgba(16,185,129,0.06))',
+                  border: '1.5px solid var(--primary)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '0.85rem'
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.96rem', display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'var(--primary)' }}>
+                    <BookOpen size={18} />
+                    <span>Download Complete Quran (All 114 Surahs)</span>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                    {downloadedSurahCount === 114
+                      ? '✓ All 114 Surahs (6,236 Ayahs) are downloaded & ready offline!'
+                      : `${downloadedSurahCount} of 114 Surahs downloaded • All 6,236 Ayahs • ~1.2 GB • 1-Click`}
+                  </div>
+                </div>
+
+                {downloadedSurahCount === 114 ? (
+                  <span className="badge-tag" style={{ background: 'var(--primary-light)', color: 'var(--primary)', fontWeight: 600, padding: '0.45rem 0.85rem' }}>
+                    <CheckCircle2 size={16} /> Entire Quran Ready
+                  </span>
+                ) : (
+                  <button
+                    className="action-btn primary"
+                    onClick={handleDownloadAll}
+                    disabled={Boolean(activeDownloadKey)}
+                    style={{ fontWeight: 600, padding: '0.5rem 1.1rem' }}
+                    id="btn-download-all-surahs"
+                  >
+                    <DownloadCloud size={16} />
+                    <span>
+                      {downloadedSurahCount > 0
+                        ? `Download Remaining (${114 - downloadedSurahCount} Surahs)`
+                        : 'Download All 114 Surahs (1-Click)'}
+                    </span>
+                  </button>
+                )}
+              </div>
+
               <div style={{ position: 'relative' }}>
                 <Search size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
