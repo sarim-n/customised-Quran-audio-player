@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Repeat, Bookmark, Flag, X } from 'lucide-react';
 import { REPEAT_PRESETS } from '../data/quranMeta';
 
@@ -27,6 +27,84 @@ export function AyahCard({
   const [showRepeatMenu, setShowRepeatMenu] = useState(false);
   const [isCustomActive, setIsCustomActive] = useState(false);
   const [customRepeatValue, setCustomRepeatValue] = useState('');
+
+  const repeatMenuRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const isLongPressRef = useRef(false);
+  const startPosRef = useRef({ x: 0, y: 0 });
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!showRepeatMenu) return;
+    const handleOutsideClick = (e) => {
+      if (repeatMenuRef.current && !repeatMenuRef.current.contains(e.target)) {
+        setShowRepeatMenu(false);
+        setIsCustomActive(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleOutsideClick);
+    return () => document.removeEventListener('pointerdown', handleOutsideClick);
+  }, [showRepeatMenu]);
+
+  // Pointer event handlers for Long Press vs Click
+  const handlePointerDown = (e) => {
+    // Only primary button
+    if (e.button !== undefined && e.button !== 0) return;
+
+    isLongPressRef.current = false;
+    startPosRef.current = { x: e.clientX, y: e.clientY };
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      setShowRepeatMenu(true);
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try { navigator.vibrate(40); } catch {}
+      }
+    }, 500); // 500ms threshold for long press
+  };
+
+  const handlePointerMove = (e) => {
+    const dx = Math.abs(e.clientX - startPosRef.current.x);
+    const dy = Math.abs(e.clientY - startPosRef.current.y);
+    if (dx > 10 || dy > 10) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+  };
+
+  const handlePointerUp = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handlePointerCancel = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleRepeatClick = (e) => {
+    e.preventDefault();
+    // If long-press was triggered, ignore normal click
+    if (isLongPressRef.current) {
+      isLongPressRef.current = false;
+      return;
+    }
+
+    // Normal click: start repeating infinitely!
+    setShowRepeatMenu(false);
+    setIsCustomActive(false);
+    onRepeatAyah(index, 'infinity');
+  };
 
   const isRepeatingThisAyah = isCurrentAyah && isPlaying && playbackMode === 'ayah';
 
@@ -116,13 +194,18 @@ export function AyahCard({
             </button>
           )}
 
-          {/* Repeat Ayah Button */}
-          <div style={{ position: 'relative' }}>
+          {/* Repeat Ayah Button (Click = Infinite Repeat, Long Press = Options Menu) */}
+          <div ref={repeatMenuRef} style={{ position: 'relative' }}>
             <button
               className={`action-btn ${isRepeatingThisAyah ? 'active' : ''}`}
-              onClick={() => setShowRepeatMenu(!showRepeatMenu)}
-              title={`Repeat Ayah ${ayah.numberInSurah} multiple times`}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerCancel}
+              onClick={handleRepeatClick}
+              title={`Click to repeat Ayah ${ayah.numberInSurah} infinitely • Long press for options`}
               id={`ayah-repeat-btn-${ayah.numberInSurah}`}
+              style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
             >
               <Repeat size={14} />
               <span>Repeat</span>
