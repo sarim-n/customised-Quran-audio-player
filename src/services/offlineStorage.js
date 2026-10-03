@@ -71,7 +71,52 @@ export async function getOfflineAudioBlob(url) {
 }
 
 /**
- * Download an entire Surah (Text + Audio) for offline playback
+ * Run an array of tasks with parallel worker concurrency pool
+ * @param {Array} items
+ * @param {number} concurrency
+ * @param {Function} taskFn (item, index) => Promise
+ * @param {AbortSignal} abortSignal
+ */
+async function runConcurrentPool(items, concurrency = 8, taskFn, abortSignal = null) {
+  let currentIndex = 0;
+  const total = items.length;
+
+  const worker = async () => {
+    while (currentIndex < total) {
+      if (abortSignal && abortSignal.aborted) {
+        throw new Error('Download cancelled by user.');
+      }
+      const index = currentIndex++;
+      const item = items[index];
+      await taskFn(item, index);
+    }
+  };
+
+  const poolSize = Math.min(concurrency, total);
+  const workers = Array.from({ length: poolSize }, () => worker());
+  await Promise.all(workers);
+}
+
+/**
+ * Fetch helper with auto-retry for resilient high-speed parallel downloads
+ */
+async function fetchWithRetry(url, signal, maxRetries = 2) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (signal && signal.aborted) throw new Error('Download cancelled by user.');
+    try {
+      const res = await fetch(url, { signal });
+      if (res.ok) return res;
+    } catch (e) {
+      if (signal && signal.aborted) throw e;
+      if (attempt === maxRetries) throw e;
+      await new Promise(r => setTimeout(r, 150));
+    }
+  }
+  throw new Error(`Failed to fetch ${url}`);
+}
+
+/**
+ * Download an entire Surah (Text + Audio) for offline playback with 8x parallel acceleration
  * @param {number} surahNumber (1-114)
  * @param {object} reciter { id, name }
  * @param {function} onProgress callback({ current, total, percentage, ayahNumber })
@@ -106,42 +151,26 @@ export async function downloadSurah(surahNumber, reciter, onProgress = () => {},
     console.warn('Text caching warning:', err);
   }
 
-  // 2. Download all Ayah MP3s into AUDIO_CACHE_NAME
+  // 2. High-speed parallel download of Ayah MP3s (8 concurrent streams)
   const audioCache = await caches.open(AUDIO_CACHE_NAME);
   let totalBytes = 0;
+  let completedCount = 0;
   const total = ayahs.length;
 
-  for (let i = 0; i < ayahs.length; i++) {
-    if (abortSignal && abortSignal.aborted) {
-      throw new Error('Download cancelled by user.');
-    }
-
-    const ayah = ayahs[i];
+  await runConcurrentPool(ayahs, 8, async (ayah) => {
     const audioUrl = getAyahAudioUrl(ayah, reciter);
 
-    // Report progress before each download
-    onProgress({
-      current: i + 1,
-      total,
-      percentage: Math.round(((i) / total) * 100),
-      ayahNumber: ayah.numberInSurah,
-      surahName
-    });
-
     try {
-      // Check if already in cache
       const existing = await audioCache.match(audioUrl);
       if (existing) {
         const cl = existing.headers.get('content-length');
         if (cl) totalBytes += parseInt(cl, 10);
       } else {
-        const res = await fetch(audioUrl, { signal: abortSignal });
+        const res = await fetchWithRetry(audioUrl, abortSignal);
         if (res.ok) {
           const cl = res.headers.get('content-length');
           if (cl) totalBytes += parseInt(cl, 10);
           await audioCache.put(audioUrl, res.clone());
-        } else {
-          throw new Error(`HTTP ${res.status}`);
         }
       }
     } catch (fetchErr) {
@@ -150,7 +179,16 @@ export async function downloadSurah(surahNumber, reciter, onProgress = () => {},
       }
       console.warn(`Failed to cache ayah ${ayah.numberInSurah}:`, fetchErr);
     }
-  }
+
+    completedCount++;
+    onProgress({
+      current: completedCount,
+      total,
+      percentage: Math.round((completedCount / total) * 100),
+      ayahNumber: ayah.numberInSurah,
+      surahName
+    });
+  }, abortSignal);
 
   // Final 100% progress update
   onProgress({
@@ -182,7 +220,7 @@ export async function downloadSurah(surahNumber, reciter, onProgress = () => {},
 }
 
 /**
- * Download an entire Juz (Text + Audio) for offline playback
+ * Download an entire Juz (Text + Audio) for offline playback with 8x parallel acceleration
  */
 export async function downloadJuz(juzNumber, convention = 'indopak', reciter, onProgress = () => {}, abortSignal = null) {
   if (typeof window === 'undefined' || !('caches' in window)) {
@@ -214,25 +252,14 @@ export async function downloadJuz(juzNumber, convention = 'indopak', reciter, on
     console.warn('Juz text caching warning:', err);
   }
 
+  // 2. High-speed parallel download of Ayah MP3s (8 concurrent streams)
   const audioCache = await caches.open(AUDIO_CACHE_NAME);
   let totalBytes = 0;
+  let completedCount = 0;
   const total = ayahs.length;
 
-  for (let i = 0; i < ayahs.length; i++) {
-    if (abortSignal && abortSignal.aborted) {
-      throw new Error('Download cancelled by user.');
-    }
-
-    const ayah = ayahs[i];
+  await runConcurrentPool(ayahs, 8, async (ayah) => {
     const audioUrl = getAyahAudioUrl(ayah, reciter);
-
-    onProgress({
-      current: i + 1,
-      total,
-      percentage: Math.round(((i) / total) * 100),
-      ayahNumber: ayah.numberInSurah,
-      juzName
-    });
 
     try {
       const existing = await audioCache.match(audioUrl);
@@ -240,13 +267,11 @@ export async function downloadJuz(juzNumber, convention = 'indopak', reciter, on
         const cl = existing.headers.get('content-length');
         if (cl) totalBytes += parseInt(cl, 10);
       } else {
-        const res = await fetch(audioUrl, { signal: abortSignal });
+        const res = await fetchWithRetry(audioUrl, abortSignal);
         if (res.ok) {
           const cl = res.headers.get('content-length');
           if (cl) totalBytes += parseInt(cl, 10);
           await audioCache.put(audioUrl, res.clone());
-        } else {
-          throw new Error(`HTTP ${res.status}`);
         }
       }
     } catch (fetchErr) {
@@ -255,7 +280,16 @@ export async function downloadJuz(juzNumber, convention = 'indopak', reciter, on
       }
       console.warn(`Failed to cache ayah ${ayah.numberInSurah}:`, fetchErr);
     }
-  }
+
+    completedCount++;
+    onProgress({
+      current: completedCount,
+      total,
+      percentage: Math.round((completedCount / total) * 100),
+      ayahNumber: ayah.numberInSurah,
+      juzName
+    });
+  }, abortSignal);
 
   onProgress({
     current: total,
