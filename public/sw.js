@@ -12,7 +12,8 @@ const PRECACHE_ASSETS = [
   '/pwa-192x192.png',
   '/pwa-512x512.png',
   '/apple-touch-icon.png',
-  '/maskable-icon-512x512.png'
+  '/maskable-icon-512x512.png',
+  '/silence.wav'
 ];
 
 // Install: precache shell

@@ -20,13 +20,14 @@ export function useQuranAudio({
   currentSurah,
   currentJuz
 }) {
-  // Dual-Player Audio Elements for Gapless Preloading
-  const player1Ref = useRef(null);
-  const player2Ref = useRef(null);
-  const activePlayerRef = useRef(1); // 1 or 2
+  // Single Persistent Audio Element for 100% reliable background playback on Mobile / iOS / Android
+  const audioRef = useRef(null);
+  
+  // Silent audio loop anchor to prevent mobile OS power-savers from suspending background execution
+  const silentAudioRef = useRef(null);
 
-  const getActiveAudio = () => activePlayerRef.current === 1 ? player1Ref.current : player2Ref.current;
-  const getIdleAudio = () => activePlayerRef.current === 1 ? player2Ref.current : player1Ref.current;
+  // Transition flag: prevents premature 'pause' state & MediaSession teardown when moving between verses
+  const isTransitioningRef = useRef(false);
 
   // Audio Playback State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -92,120 +93,122 @@ export function useQuranAudio({
   // Forward declaration for handleAudioEnded
   const handleAudioEndedRef = useRef(null);
 
-  // Initialize Dual-Audio Elements once for Gapless Audio
+  // Initialize Single Audio Element and Silent Anchor once on mount
   useEffect(() => {
-    const audio1 = new Audio();
-    const audio2 = new Audio();
-    audio1.preload = 'auto';
-    audio2.preload = 'auto';
+    const audio = new Audio();
+    audio.preload = 'auto';
+    audio.setAttribute('playsinline', 'true');
+    audio.setAttribute('webkit-playsinline', 'true');
+    audioRef.current = audio;
 
-    player1Ref.current = audio1;
-    player2Ref.current = audio2;
+    const silentAudio = new Audio('/silence.wav');
+    silentAudio.preload = 'auto';
+    silentAudio.loop = true;
+    silentAudio.volume = 0.01;
+    silentAudio.setAttribute('playsinline', 'true');
+    silentAudio.setAttribute('webkit-playsinline', 'true');
+    silentAudioRef.current = silentAudio;
 
-    const setupListeners = (audio, playerNum) => {
-      const handlePlay = () => {
-        if (activePlayerRef.current === playerNum) {
-          setIsPlaying(true);
-        }
-      };
-      const handlePause = () => {
-        if (activePlayerRef.current === playerNum) {
-          setIsPlaying(false);
-        }
-      };
-      const handleWaiting = () => {
-        if (activePlayerRef.current === playerNum) {
-          setIsBuffering(true);
-        }
-      };
-      const handlePlaying = () => {
-        if (activePlayerRef.current === playerNum) {
-          setIsBuffering(false);
-        }
-      };
-      const handleCanPlay = () => {
-        if (activePlayerRef.current === playerNum) {
-          setIsBuffering(false);
-        }
-      };
-      const handleTimeUpdate = () => {
-        if (activePlayerRef.current === playerNum) {
-          setAudioProgress({
-            currentTime: audio.currentTime || 0,
-            duration: audio.duration || 0
-          });
-
-          if ('mediaSession' in navigator && audio.duration && Number.isFinite(audio.duration) && audio.duration > 0) {
-            try {
-              navigator.mediaSession.setPositionState({
-                duration: audio.duration,
-                playbackRate: audio.playbackRate || 1,
-                position: Math.min(audio.currentTime || 0, audio.duration)
-              });
-            } catch {}
-          }
-        }
-      };
-      const handleEnded = () => {
-        if (activePlayerRef.current === playerNum) {
-          if (handleAudioEndedRef.current) {
-            handleAudioEndedRef.current();
-          }
-        }
-      };
-      const handleError = (e) => {
-        if (activePlayerRef.current === playerNum) {
-          if (!audio.getAttribute('src') || !audio.src || audio.src === window.location.href || audio.src.endsWith('/')) {
-            return;
-          }
-          console.warn(`Audio Player ${playerNum} error:`, e);
-          setIsBuffering(false);
-          setIsPlaying(false);
-          setErrorMessage('Audio playback encountered an issue. Reconnecting...');
-          setTimeout(() => setErrorMessage(null), 4000);
-        }
-      };
-
-      audio.addEventListener('play', handlePlay);
-      audio.addEventListener('pause', handlePause);
-      audio.addEventListener('waiting', handleWaiting);
-      audio.addEventListener('playing', handlePlaying);
-      audio.addEventListener('canplay', handleCanPlay);
-      audio.addEventListener('timeupdate', handleTimeUpdate);
-      audio.addEventListener('ended', handleEnded);
-      audio.addEventListener('error', handleError);
-
-      return () => {
-        audio.removeEventListener('play', handlePlay);
-        audio.removeEventListener('pause', handlePause);
-        audio.removeEventListener('waiting', handleWaiting);
-        audio.removeEventListener('playing', handlePlaying);
-        audio.removeEventListener('canplay', handleCanPlay);
-        audio.removeEventListener('timeupdate', handleTimeUpdate);
-        audio.removeEventListener('ended', handleEnded);
-        audio.removeEventListener('error', handleError);
-      };
+    const handlePlay = () => {
+      setIsPlaying(true);
+      // Keep silent audio anchor active during background playback
+      if (silentAudioRef.current && silentAudioRef.current.paused) {
+        silentAudioRef.current.play().catch(() => {});
+      }
     };
 
-    const cleanup1 = setupListeners(audio1, 1);
-    const cleanup2 = setupListeners(audio2, 2);
+    const handlePause = () => {
+      // If the audio paused because it finished the track and is transitioning to the next verse or looping,
+      // do NOT trigger a user pause or set MediaSession to paused!
+      if (audio.ended || isTransitioningRef.current) {
+        return;
+      }
+      setIsPlaying(false);
+      if (silentAudioRef.current && !silentAudioRef.current.paused) {
+        silentAudioRef.current.pause();
+      }
+    };
+
+    const handleWaiting = () => {
+      setIsBuffering(true);
+    };
+
+    const handlePlaying = () => {
+      setIsBuffering(false);
+    };
+
+    const handleCanPlay = () => {
+      setIsBuffering(false);
+    };
+
+    const handleTimeUpdate = () => {
+      setAudioProgress({
+        currentTime: audio.currentTime || 0,
+        duration: audio.duration || 0
+      });
+
+      if ('mediaSession' in navigator && audio.duration && Number.isFinite(audio.duration) && audio.duration > 0) {
+        try {
+          navigator.mediaSession.setPositionState({
+            duration: audio.duration,
+            playbackRate: audio.playbackRate || 1,
+            position: Math.min(audio.currentTime || 0, audio.duration)
+          });
+        } catch {}
+      }
+    };
+
+    const handleEnded = () => {
+      if (handleAudioEndedRef.current) {
+        handleAudioEndedRef.current();
+      }
+    };
+
+    const handleError = (e) => {
+      if (!audio.getAttribute('src') || !audio.src || audio.src === window.location.href || audio.src.endsWith('/')) {
+        return;
+      }
+      console.warn('Audio Player error:', e);
+      setIsBuffering(false);
+      setIsPlaying(false);
+      setErrorMessage('Audio playback encountered an issue. Reconnecting...');
+      setTimeout(() => setErrorMessage(null), 4000);
+    };
+
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
+    audio.addEventListener('waiting', handleWaiting);
+    audio.addEventListener('playing', handlePlaying);
+    audio.addEventListener('canplay', handleCanPlay);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
 
     return () => {
-      cleanup1();
-      cleanup2();
-      audio1.pause();
-      audio2.pause();
-      audio1.removeAttribute('src');
-      audio2.removeAttribute('src');
-      player1Ref.current = null;
-      player2Ref.current = null;
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('waiting', handleWaiting);
+      audio.removeEventListener('playing', handlePlaying);
+      audio.removeEventListener('canplay', handleCanPlay);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
+      audio.pause();
+      audio.removeAttribute('src');
+      if (silentAudio) {
+        silentAudio.pause();
+        silentAudio.removeAttribute('src');
+      }
+      audioRef.current = null;
+      silentAudioRef.current = null;
     };
   }, []);
 
   // Update playback speed when state changes
   useEffect(() => {
-    if (player1Ref.current) player1Ref.current.playbackRate = playbackSpeed;
-    if (player2Ref.current) player2Ref.current.playbackRate = playbackSpeed;
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackSpeed;
+    }
     localStorage.setItem('quran_playback_speed', playbackSpeed.toString());
   }, [playbackSpeed]);
 
@@ -222,14 +225,16 @@ export function useQuranAudio({
     setPlaybackMode('normal');
     setCurrentCycle(1);
     setAudioProgress({ currentTime: 0, duration: 0 });
-    [player1Ref.current, player2Ref.current].forEach(audio => {
-      if (audio) {
-        audio.pause();
-        audio.currentTime = 0;
-        audio.removeAttribute('src');
-        audio.load();
-      }
-    });
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.removeAttribute('src');
+      audio.load();
+    }
+    if (silentAudioRef.current) {
+      silentAudioRef.current.pause();
+    }
   }, [viewMode, currentSurah?.number, currentJuz]);
 
   // When ayahs array finishes loading/updating
@@ -261,10 +266,10 @@ export function useQuranAudio({
       }
     };
 
-    const releaseWakeLock = async () => {
+    const releaseWakeLock = () => {
       if (wakeLockRef.current) {
         try {
-          await wakeLockRef.current.release();
+          wakeLockRef.current.release();
         } catch {}
         wakeLockRef.current = null;
       }
@@ -316,12 +321,14 @@ export function useQuranAudio({
         ]
       });
 
-      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+      // Do NOT set playbackState to paused if transitioning between verses
+      if (!isTransitioningRef.current) {
+        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+      }
     } catch (err) {
       console.warn('MediaSession metadata error:', err);
     }
   }, [currentAyahIndex, isPlaying, reciter, viewMode, currentSurah, currentJuz]);
-
 
   // Calculate the next Ayah index given current index and repetition configuration
   const computeNextAyahIndex = useCallback((currentIndex) => {
@@ -340,12 +347,6 @@ export function useQuranAudio({
     if (mode === 'normal' || mode === 'juz') {
       if (currentIndex < list.length - 1) {
         return currentIndex + 1;
-      }
-      if (mode === 'juz') {
-        const isInfinite = target === 'infinity';
-        if (isInfinite || cycle < target) {
-          return 0;
-        }
       }
       return null;
     }
@@ -378,7 +379,13 @@ export function useQuranAudio({
       if (startFound !== -1 && endFound !== -1) {
         startIndex = Math.min(startFound, endFound);
         endIndex = Math.max(startFound, endFound);
+      } else {
+        const normStart = Math.min(rStart, rEnd);
+        const normEnd = Math.max(rStart, rEnd);
+        startIndex = Math.max(0, Math.min(list.length - 1, normStart - 1));
+        endIndex = Math.max(0, Math.min(list.length - 1, normEnd - 1));
       }
+
       if (currentIndex < endIndex) {
         return currentIndex + 1;
       }
@@ -392,7 +399,7 @@ export function useQuranAudio({
     return null;
   }, []);
 
-  // Preload the next Ayah into the idle audio element for ZERO pause
+  // Preload upcoming Ayah into the browser cache so track change is instantaneous (0ms network delay)
   const preloadNextAyah = useCallback((currentIndex) => {
     const nextIdx = computeNextAyahIndex(currentIndex);
     if (nextIdx === null) return;
@@ -402,19 +409,15 @@ export function useQuranAudio({
 
     const nextAyah = list[nextIdx];
     const nextUrl = getAyahAudioUrl(nextAyah, stateRef.current.reciter);
-    const idleAudio = getIdleAudio();
 
-    if (idleAudio && nextUrl) {
-      if (idleAudio.src !== nextUrl) {
-        idleAudio.src = nextUrl;
-        idleAudio.playbackRate = stateRef.current.playbackSpeed;
-        idleAudio.preload = 'auto';
-        idleAudio.load();
-      }
+    if (nextUrl) {
+      try {
+        fetch(nextUrl, { mode: 'no-cors' }).catch(() => {});
+      } catch {}
     }
   }, [computeNextAyahIndex]);
 
-  // Load and play audio with seamless gapless transition using preloaded audio
+  // Load and play audio on the single persistent audio element
   const loadAndPlayAyah = useCallback((index, speed = null) => {
     const list = stateRef.current.ayahs;
     if (!list || list.length === 0 || index < 0 || index >= list.length) {
@@ -433,67 +436,59 @@ export function useQuranAudio({
       localStorage.setItem('quran_last_ayah_number', ayah.numberInSurah?.toString() || '1');
     } catch {}
 
-    const idleAudio = getIdleAudio();
-    const activeAudio = getActiveAudio();
+    const audio = audioRef.current;
+    if (!audio) return;
 
-    // Check if idle audio has ALREADY preloaded this Ayah!
-    if (idleAudio && idleAudio.src === url && idleAudio.readyState >= 2) {
-      // Instant switch: swap players with 0ms network latency!
-      activePlayerRef.current = activePlayerRef.current === 1 ? 2 : 1;
-      const newActive = getActiveAudio();
-      const newIdle = getIdleAudio();
+    isTransitioningRef.current = true;
 
-      if (newIdle) {
-        newIdle.pause();
-        newIdle.currentTime = 0;
-      }
+    // Start silent audio anchor in background if not already playing
+    if (silentAudioRef.current && silentAudioRef.current.paused) {
+      silentAudioRef.current.play().catch(() => {});
+    }
 
-      newActive.playbackRate = rate;
-      newActive.currentTime = 0;
-      const playPromise = newActive.play();
+    // If replaying the exact same URL (e.g. single ayah repetition)
+    if (audio.src === url) {
+      audio.currentTime = 0;
+      audio.playbackRate = rate;
+      const playPromise = audio.play();
       if (playPromise !== undefined) {
-        playPromise.catch(err => {
-          if (err.name !== 'AbortError') {
-            console.warn('Background play swap failed, falling back to primary player:', err);
-            // Fallback for background playback: reuse existing active player so audio doesn't drop
-            activePlayerRef.current = activePlayerRef.current === 1 ? 2 : 1;
-            const fallbackPlayer = getActiveAudio();
-            if (fallbackPlayer) {
-              fallbackPlayer.src = url;
-              fallbackPlayer.playbackRate = rate;
-              fallbackPlayer.currentTime = 0;
-              fallbackPlayer.play().catch(e => {
-                if (e.name !== 'AbortError') setIsPlaying(false);
-              });
+        playPromise
+          .then(() => {
+            isTransitioningRef.current = false;
+          })
+          .catch(err => {
+            isTransitioningRef.current = false;
+            if (err.name !== 'AbortError') {
+              console.warn('Playback error:', err);
+              setIsPlaying(false);
             }
-          }
-        });
+          });
+      } else {
+        isTransitioningRef.current = false;
       }
-
-      // Preload next upcoming verse in background
-      preloadNextAyah(index);
-      return;
+    } else {
+      audio.src = url;
+      audio.playbackRate = rate;
+      audio.currentTime = 0;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            isTransitioningRef.current = false;
+          })
+          .catch(err => {
+            isTransitioningRef.current = false;
+            if (err.name !== 'AbortError') {
+              console.warn('Playback error:', err);
+              setIsPlaying(false);
+            }
+          });
+      } else {
+        isTransitioningRef.current = false;
+      }
     }
 
-    // Fallback: load directly on active player
-    if (!activeAudio) return;
-    if (activeAudio.src !== url) {
-      activeAudio.src = url;
-    }
-    activeAudio.playbackRate = rate;
-    activeAudio.currentTime = 0;
-
-    const playPromise = activeAudio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(err => {
-        if (err.name !== 'AbortError') {
-          console.warn('Play was prevented or failed:', err);
-          setIsPlaying(false);
-        }
-      });
-    }
-
-    // Immediately preload the next verse into idle player
+    // Immediately prefetch the next upcoming verse in background
     preloadNextAyah(index);
   }, [preloadNextAyah]);
 
@@ -518,6 +513,7 @@ export function useQuranAudio({
         loadAndPlayAyah(idx + 1);
       } else {
         setIsPlaying(false);
+        if (silentAudioRef.current) silentAudioRef.current.pause();
       }
       return;
     }
@@ -527,14 +523,15 @@ export function useQuranAudio({
       const isInfinite = target === 'infinity';
       if (isInfinite || cycle < target) {
         setCurrentCycle(prev => prev + 1);
-        const active = getActiveAudio();
-        if (active) {
-          active.currentTime = 0;
-          active.play().catch(console.warn);
+        const audio = audioRef.current;
+        if (audio) {
+          audio.currentTime = 0;
+          audio.play().catch(console.warn);
         }
       } else {
         setIsPlaying(false);
         setPlaybackMode('normal');
+        if (silentAudioRef.current) silentAudioRef.current.pause();
       }
       return;
     }
@@ -560,12 +557,14 @@ export function useQuranAudio({
       if (idx < endIndex) {
         loadAndPlayAyah(idx + 1);
       } else {
+        // Reached end of the set range! Loop back to startIndex
         const isInfinite = target === 'infinity';
         if (isInfinite || cycle < target) {
           setCurrentCycle(prev => prev + 1);
           loadAndPlayAyah(startIndex);
         } else {
           setIsPlaying(false);
+          if (silentAudioRef.current) silentAudioRef.current.pause();
         }
       }
       return;
@@ -582,6 +581,7 @@ export function useQuranAudio({
           loadAndPlayAyah(0);
         } else {
           setIsPlaying(false);
+          if (silentAudioRef.current) silentAudioRef.current.pause();
         }
       }
       return;
@@ -598,6 +598,7 @@ export function useQuranAudio({
           loadAndPlayAyah(0);
         } else {
           setIsPlaying(false);
+          if (silentAudioRef.current) silentAudioRef.current.pause();
         }
       }
       return;
@@ -613,16 +614,20 @@ export function useQuranAudio({
 
   // 1. Play / Pause toggle
   const togglePlayPause = useCallback(() => {
-    const active = getActiveAudio();
-    if (!active) return;
+    const audio = audioRef.current;
+    if (!audio) return;
 
     if (isPlaying) {
-      active.pause();
+      audio.pause();
+      if (silentAudioRef.current) silentAudioRef.current.pause();
     } else {
-      if (!active.src || active.src === window.location.href) {
+      if (silentAudioRef.current && silentAudioRef.current.paused) {
+        silentAudioRef.current.play().catch(() => {});
+      }
+      if (!audio.src || audio.src === window.location.href) {
         loadAndPlayAyah(currentAyahIndex);
       } else {
-        active.play().catch(err => {
+        audio.play().catch(err => {
           if (err.name !== 'AbortError') {
             loadAndPlayAyah(currentAyahIndex);
           }
@@ -691,12 +696,16 @@ export function useQuranAudio({
 
   // Stop completely and reset repetition state
   const stopPlayback = useCallback(() => {
-    [player1Ref.current, player2Ref.current].forEach(audio => {
-      if (audio) {
-        audio.pause();
-        audio.currentTime = 0;
-      }
-    });
+    isTransitioningRef.current = false;
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+    if (silentAudioRef.current) {
+      silentAudioRef.current.pause();
+      silentAudioRef.current.currentTime = 0;
+    }
     setIsPlaying(false);
     setIsBuffering(false);
     setPlaybackMode('normal');
@@ -757,10 +766,10 @@ export function useQuranAudio({
   // 9. Previous Ayah
   const prevAyah = useCallback(() => {
     const { currentAyahIndex: idx, playbackMode: mode, rangeStart: rStart } = stateRef.current;
-    const active = getActiveAudio();
+    const audio = audioRef.current;
 
-    if (active && active.currentTime > 2) {
-      active.currentTime = 0;
+    if (audio && audio.currentTime > 2) {
+      audio.currentTime = 0;
       return;
     }
 
@@ -769,13 +778,13 @@ export function useQuranAudio({
       if (idx > minIndex) {
         loadAndPlayAyah(idx - 1);
       } else {
-        if (active) active.currentTime = 0;
+        if (audio) audio.currentTime = 0;
       }
     } else {
       if (idx > 0) {
         loadAndPlayAyah(idx - 1);
       } else {
-        if (active) active.currentTime = 0;
+        if (audio) audio.currentTime = 0;
       }
     }
   }, [loadAndPlayAyah]);
@@ -784,27 +793,28 @@ export function useQuranAudio({
   const changePlaybackSpeed = useCallback((speed) => {
     if (!PLAYBACK_SPEEDS.includes(speed)) return;
     setPlaybackSpeed(speed);
-    if (player1Ref.current) player1Ref.current.playbackRate = speed;
-    if (player2Ref.current) player2Ref.current.playbackRate = speed;
+    if (audioRef.current) {
+      audioRef.current.playbackRate = speed;
+    }
   }, []);
 
   // 11. Change Reciter (preserves current position and continues smoothly if playing)
   const changeReciter = useCallback((newReciter) => {
     setReciter(newReciter);
-    const active = getActiveAudio();
+    const audio = audioRef.current;
     const { ayahs: list, currentAyahIndex: idx } = stateRef.current;
 
-    if (active && list && list[idx]) {
-      const wasPlaying = !active.paused;
-      const curTime = active.currentTime;
+    if (audio && list && list[idx]) {
+      const wasPlaying = !audio.paused;
+      const curTime = audio.currentTime;
       const newUrl = getAyahAudioUrl(list[idx], newReciter);
 
-      active.src = newUrl;
-      active.playbackRate = stateRef.current.playbackSpeed;
-      active.currentTime = curTime;
+      audio.src = newUrl;
+      audio.playbackRate = stateRef.current.playbackSpeed;
+      audio.currentTime = curTime;
 
       if (wasPlaying) {
-        active.play().catch(console.warn);
+        audio.play().catch(console.warn);
       }
 
       // Preload next with new reciter
@@ -814,9 +824,9 @@ export function useQuranAudio({
 
   // 12. Seek audio within active Ayah
   const seekAudio = useCallback((time) => {
-    const active = getActiveAudio();
-    if (active && Number.isFinite(time)) {
-      active.currentTime = time;
+    const audio = audioRef.current;
+    if (audio && Number.isFinite(time)) {
+      audio.currentTime = time;
     }
   }, []);
 
@@ -828,20 +838,18 @@ export function useQuranAudio({
 
     if (targetIdx === stateRef.current.currentAyahIndex) {
       // Seeking within currently playing Ayah
-      const active = getActiveAudio();
-      if (active && active.duration && Number.isFinite(fraction)) {
-        active.currentTime = Math.max(0, Math.min(active.duration, fraction * active.duration));
+      const audio = audioRef.current;
+      if (audio && audio.duration && Number.isFinite(fraction)) {
+        audio.currentTime = Math.max(0, Math.min(audio.duration, fraction * audio.duration));
       }
     } else {
       // Jump to target Ayah in Surah or Juz and play
       loadAndPlayAyah(targetIdx);
       if (fraction > 0) {
-        setTimeout(() => {
-          const active = getActiveAudio();
-          if (active && active.duration && Number.isFinite(fraction)) {
-            active.currentTime = Math.max(0, Math.min(active.duration, fraction * active.duration));
-          }
-        }, 120);
+        const audio = audioRef.current;
+        if (audio && audio.duration && Number.isFinite(fraction)) {
+          audio.currentTime = Math.max(0, Math.min(audio.duration, fraction * audio.duration));
+        }
       }
     }
   }, [loadAndPlayAyah]);
@@ -852,19 +860,27 @@ export function useQuranAudio({
 
     try {
       navigator.mediaSession.setActionHandler('play', () => {
-        const active = getActiveAudio();
-        if (active && active.paused) {
-          active.play().catch(console.warn);
+        const audio = audioRef.current;
+        if (audio && audio.paused) {
+          if (silentAudioRef.current && silentAudioRef.current.paused) {
+            silentAudioRef.current.play().catch(() => {});
+          }
+          audio.play().catch(console.warn);
           setIsPlaying(true);
         }
       });
 
       navigator.mediaSession.setActionHandler('pause', () => {
-        const active = getActiveAudio();
-        if (active && !active.paused) {
-          active.pause();
+        const audio = audioRef.current;
+        if (audio && !audio.paused) {
+          audio.pause();
+          if (silentAudioRef.current) silentAudioRef.current.pause();
           setIsPlaying(false);
         }
+      });
+
+      navigator.mediaSession.setActionHandler('stop', () => {
+        stopPlayback();
       });
 
       navigator.mediaSession.setActionHandler('previoustrack', () => {
@@ -883,7 +899,7 @@ export function useQuranAudio({
     } catch (err) {
       console.warn('MediaSession handler warning:', err);
     }
-  }, [prevAyah, nextAyah, seekAudio]);
+  }, [prevAyah, nextAyah, seekAudio, stopPlayback]);
 
   return {
     // Audio State
