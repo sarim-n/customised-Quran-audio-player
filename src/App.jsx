@@ -410,6 +410,7 @@ export function App() {
         onOpenGoToAyahModal={() => setIsGoToAyahModalOpen(true)}
         autoScroll={autoScroll}
         onToggleAutoScroll={handleToggleAutoScroll}
+        onShowToast={showToast}
       />
 
       {/* Main Body Content */}

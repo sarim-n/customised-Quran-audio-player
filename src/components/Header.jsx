@@ -1,5 +1,6 @@
-import React from 'react';
-import { BookOpen, Layers, User, Sun, Moon, Monitor, Globe, Target } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BookOpen, Layers, User, Sun, Moon, Monitor, Globe, Target, Download } from 'lucide-react';
+import { promptPwaInstall, isPwaInstalled } from '../pwa';
 
 export function Header({
   viewMode,
@@ -15,8 +16,47 @@ export function Header({
   onOpenReciterModal,
   onOpenGoToAyahModal,
   autoScroll,
-  onToggleAutoScroll
+  onToggleAutoScroll,
+  onShowToast
 }) {
+  const [canInstall, setCanInstall] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    setIsStandalone(isPwaInstalled());
+
+    const handleCanInstall = (e) => {
+      setCanInstall(Boolean(e.detail));
+    };
+
+    window.addEventListener('pwa-can-install', handleCanInstall);
+
+    // iOS detection for Safari Add to Home Screen guidance
+    const isIos = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if (isIos && !isPwaInstalled()) {
+      setCanInstall(true);
+    }
+
+    return () => window.removeEventListener('pwa-can-install', handleCanInstall);
+  }, []);
+
+  const handleInstallClick = async () => {
+    const isIos = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if (isIos) {
+      if (onShowToast) {
+        onShowToast("Tap Safari's Share button (⎋) below, then select 'Add to Home Screen' (+)");
+      } else {
+        alert("To install on iOS: Tap the Share button (⎋) in Safari and choose 'Add to Home Screen'.");
+      }
+      return;
+    }
+
+    const accepted = await promptPwaInstall();
+    if (accepted && onShowToast) {
+      onShowToast("App installation started! Check your home screen.");
+    }
+  };
+
   const toggleTheme = () => {
     if (theme === 'light') setTheme('dark');
     else if (theme === 'dark') setTheme('system');
@@ -116,6 +156,26 @@ export function Header({
           >
             {theme === 'light' ? <Sun size={16} /> : theme === 'dark' ? <Moon size={16} /> : <Monitor size={16} />}
           </button>
+
+          {/* Mobile / PWA Install Button */}
+          {canInstall && !isStandalone && (
+            <button
+              className="action-btn"
+              onClick={handleInstallClick}
+              title="Install Quran Memorizer App on your device"
+              id="btn-install-pwa"
+              style={{
+                background: 'var(--primary)',
+                color: 'var(--primary-text)',
+                borderColor: 'var(--primary)',
+                fontWeight: 600,
+                padding: '0.45rem 0.75rem'
+              }}
+            >
+              <Download size={15} />
+              <span>Install App</span>
+            </button>
+          )}
         </div>
       </div>
     </header>
