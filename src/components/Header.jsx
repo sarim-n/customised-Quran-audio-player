@@ -13,7 +13,9 @@ export function Header({
   onOpenSurahModal,
   onOpenJuzModal,
   onOpenReciterModal,
-  onOpenGoToAyahModal
+  onOpenGoToAyahModal,
+  autoScroll,
+  onToggleAutoScroll
 }) {
   const toggleTheme = () => {
     if (theme === 'light') setTheme('dark');
@@ -92,6 +94,17 @@ export function Header({
             id="btn-toggle-translation"
           >
             <Globe size={16} />
+          </button>
+
+          {/* Auto-scroll Follow Toggle */}
+          <button
+            className={`icon-btn ${autoScroll ? 'active' : ''}`}
+            onClick={onToggleAutoScroll}
+            title={autoScroll ? 'Auto-scroll Follow is ON (Click to disable screen navigation)' : 'Auto-scroll Follow is OFF (Screen stays still)'}
+            id="btn-toggle-autoscroll"
+            style={autoScroll ? { color: 'var(--primary)', borderColor: 'var(--primary)' } : {}}
+          >
+            <Target size={16} />
           </button>
 
           {/* Theme Toggle */}

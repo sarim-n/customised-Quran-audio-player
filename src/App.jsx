@@ -18,6 +18,13 @@ export function App() {
     return localStorage.getItem('quran_theme') || 'system';
   });
 
+  // Auto-scroll follow state (stored in localStorage)
+  const [autoScroll, setAutoScroll] = useState(() => {
+    return localStorage.getItem('quran_autoscroll') !== 'false';
+  });
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const userScrollTimerRef = useRef(null);
+
   // Navigation state
   const [viewMode, setViewMode] = useState('surah'); // 'surah' | 'juz'
   const [currentSurahNumber, setCurrentSurahNumber] = useState(() => {
@@ -163,8 +170,44 @@ export function App() {
     loadContent();
   }, [loadContent]);
 
+  // Detect when user is actively scrolling or reading (mouse wheel, touch swipe)
+  useEffect(() => {
+    const handleUserScroll = () => {
+      setIsUserScrolling(true);
+      if (userScrollTimerRef.current) {
+        clearTimeout(userScrollTimerRef.current);
+      }
+      // When user is scrolling, do NOT yank screen to next Ayah!
+      // Keep auto-scroll paused for 10 seconds after user stops scrolling
+      userScrollTimerRef.current = setTimeout(() => {
+        setIsUserScrolling(false);
+      }, 10000);
+    };
+
+    window.addEventListener('wheel', handleUserScroll, { passive: true });
+    window.addEventListener('touchmove', handleUserScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('wheel', handleUserScroll);
+      window.removeEventListener('touchmove', handleUserScroll);
+      if (userScrollTimerRef.current) clearTimeout(userScrollTimerRef.current);
+    };
+  }, []);
+
+  const handleToggleAutoScroll = () => {
+    setAutoScroll(prev => {
+      const next = !prev;
+      localStorage.setItem('quran_autoscroll', next.toString());
+      showToast(next ? 'Auto-scroll Follow Enabled' : 'Auto-scroll Follow Disabled');
+      return next;
+    });
+  };
+
   // Auto-scroll to currently playing Ayah
   useEffect(() => {
+    // If auto-scroll is disabled or user is currently scrolling, DO NOT navigate!
+    if (!autoScroll || isUserScrolling) return;
+
     if (isPlaying && currentAyah?.number) {
       const el = document.getElementById(`ayah-${currentAyah.number}`);
       if (el) {
@@ -175,7 +218,7 @@ export function App() {
         }
       }
     }
-  }, [isPlaying, currentAyah?.number]);
+  }, [isPlaying, currentAyah?.number, autoScroll, isUserScrolling]);
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -279,6 +322,8 @@ export function App() {
         onOpenJuzModal={() => setIsJuzModalOpen(true)}
         onOpenReciterModal={() => setIsReciterModalOpen(true)}
         onOpenGoToAyahModal={() => setIsGoToAyahModalOpen(true)}
+        autoScroll={autoScroll}
+        onToggleAutoScroll={handleToggleAutoScroll}
       />
 
       {/* Main Body Content */}
@@ -542,6 +587,24 @@ export function App() {
         currentJuz={currentJuzNumber}
         onJumpToTarget={handleJumpToTarget}
       />
+
+      {/* Floating Snap to Playing Ayah button when user has scrolled away */}
+      {isPlaying && (isUserScrolling || !autoScroll) && currentAyah && (
+        <button
+          className="floating-sync-btn"
+          onClick={() => {
+            setIsUserScrolling(false);
+            const el = document.getElementById(`ayah-${currentAyah.number}`);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }}
+          title="Scroll to currently playing verse"
+        >
+          <Target size={14} />
+          <span>Snap to Playing Ayah ({currentAyah.numberInSurah})</span>
+        </button>
+      )}
     </div>
   );
 }
