@@ -276,11 +276,11 @@ export function OfflineModal({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-backdrop" onClick={onClose} id="offline-modal-backdrop">
+    <div className="modal-overlay" onClick={onClose} id="offline-modal-overlay">
       <div
-        className="modal-content"
+        className="modal-card"
         onClick={e => e.stopPropagation()}
-        style={{ maxWidth: '640px', width: '92%', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}
+        style={{ maxWidth: '640px', width: '94%', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}
         id="offline-modal-container"
       >
         {/* Modal Header */}
