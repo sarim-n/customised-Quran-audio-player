@@ -346,10 +346,10 @@ export function RepetitionToolbar({
                       }}
                     >
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                        <div className="surah-item-title" style={{ fontSize: '0.85rem' }}>
                           {s.surahNumber}. {s.surahEnglishName}
                         </div>
-                        <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                        <div className="surah-item-meta" style={{ fontSize: '0.725rem' }}>
                           Ayahs {s.startAyah}–{s.endAyah} ({s.totalInView} verses)
                         </div>
                       </div>

@@ -12,6 +12,40 @@ import { SURAHS, INDOPAK_JUZ_METADATA, MADANI_JUZ_METADATA } from './data/quranM
 import { useQuranAudio } from './hooks/useQuranAudio';
 import { AlertCircle, RefreshCw, Loader2, Target, CheckCircle2 } from 'lucide-react';
 
+// Parse initial navigation from URL hash or localStorage so reloads preserve current Surah/Juz
+function getInitialNavigationState() {
+  if (typeof window !== 'undefined') {
+    const hash = window.location.hash || '';
+    const surahMatch = hash.match(/^#surah=(\d+)/i);
+    if (surahMatch) {
+      const num = parseInt(surahMatch[1], 10);
+      if (num >= 1 && num <= 114) {
+        return { viewMode: 'surah', surahNumber: num, juzNumber: 1 };
+      }
+    }
+
+    const juzMatch = hash.match(/^#juz=(\d+)/i);
+    if (juzMatch) {
+      const num = parseInt(juzMatch[1], 10);
+      if (num >= 1 && num <= 30) {
+        return { viewMode: 'juz', surahNumber: 1, juzNumber: num };
+      }
+    }
+
+    const savedMode = localStorage.getItem('quran_view_mode');
+    const savedSurah = parseInt(localStorage.getItem('quran_last_surah') || '1', 10);
+    const validSurah = savedSurah >= 1 && savedSurah <= 114 ? savedSurah : 1;
+    const savedJuz = parseInt(localStorage.getItem('quran_last_juz') || '1', 10);
+    const validJuz = savedJuz >= 1 && savedJuz <= 30 ? savedJuz : 1;
+
+    if (savedMode === 'juz') {
+      return { viewMode: 'juz', surahNumber: validSurah, juzNumber: validJuz };
+    }
+    return { viewMode: 'surah', surahNumber: validSurah, juzNumber: validJuz };
+  }
+  return { viewMode: 'surah', surahNumber: 1, juzNumber: 1 };
+}
+
 export function App() {
   // Theme state
   const [theme, setTheme] = useState(() => {
@@ -25,14 +59,11 @@ export function App() {
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const userScrollTimerRef = useRef(null);
 
-  // Navigation state
-  const [viewMode, setViewMode] = useState('surah'); // 'surah' | 'juz'
-  const [currentSurahNumber, setCurrentSurahNumber] = useState(() => {
-    const saved = localStorage.getItem('quran_last_surah');
-    const num = saved ? parseInt(saved, 10) : 1;
-    return num >= 1 && num <= 114 ? num : 1;
-  });
-  const [currentJuzNumber, setCurrentJuzNumber] = useState(1);
+  // Navigation state (restored from URL hash or localStorage so reload stays on current Surah/Juz)
+  const [initialNav] = useState(getInitialNavigationState);
+  const [viewMode, setViewMode] = useState(initialNav.viewMode); // 'surah' | 'juz'
+  const [currentSurahNumber, setCurrentSurahNumber] = useState(initialNav.surahNumber);
+  const [currentJuzNumber, setCurrentJuzNumber] = useState(initialNav.juzNumber);
 
   // Juz division convention: 'indopak' (subcontinent) vs 'madani' (Uthmani)
   const [juzConvention, setJuzConvention] = useState(() => {
@@ -41,7 +72,7 @@ export function App() {
 
   // Content state
   const [currentSurahMeta, setCurrentSurahMeta] = useState(() => {
-    return SURAHS.find(s => s.number === currentSurahNumber) || SURAHS[0];
+    return SURAHS.find(s => s.number === initialNav.surahNumber) || SURAHS[0];
   });
   const [ayahs, setAyahs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -157,6 +188,7 @@ export function App() {
       } else {
         const data = await fetchJuz(currentJuzNumber, juzConvention);
         setAyahs(data.ayahs);
+        localStorage.setItem('quran_last_juz', currentJuzNumber.toString());
       }
     } catch (err) {
       console.error('Failed to load Quran data:', err);
@@ -169,6 +201,53 @@ export function App() {
   useEffect(() => {
     loadContent();
   }, [loadContent]);
+
+  // Keep localStorage and URL hash synced whenever viewMode, Surah, or Juz changes
+  useEffect(() => {
+    localStorage.setItem('quran_view_mode', viewMode);
+    if (viewMode === 'surah') {
+      localStorage.setItem('quran_last_surah', currentSurahNumber.toString());
+      const targetHash = `#surah=${currentSurahNumber}`;
+      if (window.location.hash !== targetHash) {
+        window.history.replaceState(null, '', targetHash);
+      }
+    } else {
+      localStorage.setItem('quran_last_juz', currentJuzNumber.toString());
+      const targetHash = `#juz=${currentJuzNumber}`;
+      if (window.location.hash !== targetHash) {
+        window.history.replaceState(null, '', targetHash);
+      }
+    }
+  }, [viewMode, currentSurahNumber, currentJuzNumber]);
+
+  // Support browser Back/Forward navigation with hash
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash || '';
+      const surahMatch = hash.match(/^#surah=(\d+)/i);
+      if (surahMatch) {
+        const num = parseInt(surahMatch[1], 10);
+        if (num >= 1 && num <= 114) {
+          setViewMode('surah');
+          setCurrentSurahNumber(num);
+          const meta = SURAHS.find(s => s.number === num);
+          if (meta) setCurrentSurahMeta(meta);
+        }
+        return;
+      }
+      const juzMatch = hash.match(/^#juz=(\d+)/i);
+      if (juzMatch) {
+        const num = parseInt(juzMatch[1], 10);
+        if (num >= 1 && num <= 30) {
+          setViewMode('juz');
+          setCurrentJuzNumber(num);
+        }
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   // Detect when user is actively scrolling or reading (mouse wheel, touch swipe)
   useEffect(() => {
@@ -256,6 +335,9 @@ export function App() {
     stopPlayback();
     setViewMode('surah');
     setCurrentSurahNumber(surahNum);
+    localStorage.setItem('quran_view_mode', 'surah');
+    localStorage.setItem('quran_last_surah', surahNum.toString());
+    window.history.replaceState(null, '', `#surah=${surahNum}`);
     const meta = SURAHS.find(s => s.number === surahNum);
     if (meta) setCurrentSurahMeta(meta);
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -266,6 +348,9 @@ export function App() {
     stopPlayback();
     setViewMode('juz');
     setCurrentJuzNumber(juzNum);
+    localStorage.setItem('quran_view_mode', 'juz');
+    localStorage.setItem('quran_last_juz', juzNum.toString());
+    window.history.replaceState(null, '', `#juz=${juzNum}`);
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 

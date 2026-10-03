@@ -92,6 +92,11 @@ html, body {
   min-height: 100vh;
 }
 
+button, input, select, textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
 /* Scrollbar styles */
 ::-webkit-scrollbar {
   width: 8px;
@@ -797,6 +802,7 @@ html, body {
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   background: var(--bg-surface);
+  color: var(--text-main);
   cursor: pointer;
   text-align: left;
   transition: all 0.15s ease;
@@ -805,16 +811,62 @@ html, body {
 .surah-select-item:hover {
   background: var(--bg-subtle);
   border-color: var(--primary);
+  color: var(--text-main);
 }
 
 .surah-select-item.selected {
   background: var(--primary-light);
   border-color: var(--primary);
+  color: var(--text-main);
+}
+
+.surah-item-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  transition: color 0.15s ease;
+}
+
+.surah-item-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+}
+
+[data-theme="dark"] .surah-select-item {
+  background: var(--bg-surface);
+  color: #f0f4f2 !important;
+  border-color: var(--border-subtle);
+}
+
+[data-theme="dark"] .surah-select-item:hover {
+  background: var(--bg-subtle);
+  border-color: var(--primary);
+  color: #ffffff !important;
 }
 
 [data-theme="dark"] .surah-select-item.selected {
   background: var(--bg-active);
   border-color: var(--primary);
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .surah-item-title {
+  color: #f0f4f2 !important;
+}
+
+[data-theme="dark"] .surah-item-meta {
+  color: #a3b3ac !important;
+}
+
+[data-theme="dark"] .surah-select-item:hover .surah-item-title,
+[data-theme="dark"] .surah-select-item.selected .surah-item-title {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .surah-select-item:hover .surah-item-meta,
+[data-theme="dark"] .surah-select-item.selected .surah-item-meta {
+  color: #cbd5e1 !important;
 }
 
 /* Button Presets Group */

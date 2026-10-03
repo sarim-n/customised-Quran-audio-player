@@ -61,8 +61,8 @@ export function SurahModal({ isOpen, onClose, currentSurahNumber, onSelectSurah 
                       {surah.number}
                     </span>
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{surah.englishName}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      <div className="surah-item-title">{surah.englishName}</div>
+                      <div className="surah-item-meta">
                         {surah.numberOfAyahs} Ayahs • {surah.revelationType}
                       </div>
                     </div>

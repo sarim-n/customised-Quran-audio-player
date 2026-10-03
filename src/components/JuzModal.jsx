@@ -78,10 +78,10 @@ export function JuzModal({
                       {juzNum}
                     </span>
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                      <div className="surah-item-title">
                         {item.transliteration}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      <div className="surah-item-meta">
                         Starts {startSurah?.englishName || `Surah ${item.surah}`}:{item.ayah}
                       </div>
                     </div>

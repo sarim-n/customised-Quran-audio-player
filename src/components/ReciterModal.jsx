@@ -30,8 +30,8 @@ export function ReciterModal({ isOpen, onClose, currentReciter, onSelectReciter 
                   id={`reciter-item-${r.id}`}
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', textAlign: 'left' }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{r.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{r.subtext}</div>
+                    <div className="surah-item-title" style={{ fontSize: '0.95rem' }}>{r.name}</div>
+                    <div className="surah-item-meta" style={{ fontSize: '0.8rem' }}>{r.subtext}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <span style={{ fontFamily: 'var(--font-arabic)', fontSize: '1.25rem', color: 'var(--primary)' }}>
