@@ -395,6 +395,23 @@ export async function deleteOfflineItem(manifestKey) {
 }
 
 /**
+ * Delete ALL offline downloaded items, clearing all audio/API caches and resetting the manifest
+ */
+export async function deleteAllOfflineData() {
+  try {
+    if (typeof window !== 'undefined' && 'caches' in window) {
+      await caches.delete(AUDIO_CACHE_NAME);
+      await caches.delete(API_CACHE_NAME);
+    }
+  } catch (err) {
+    console.warn('Error clearing offline caches:', err);
+  }
+
+  saveOfflineIndex({});
+  return { success: true };
+}
+
+/**
  * Format bytes to readable string (e.g. 15.4 MB)
  */
 export function formatBytes(bytes) {

@@ -21,6 +21,7 @@ import {
   downloadJuz,
   downloadAllSurahs,
   deleteOfflineItem,
+  deleteAllOfflineData,
   formatBytes,
   getStorageEstimate,
   getOfflineKey
@@ -238,17 +239,13 @@ export function OfflineModal({
     }
   };
 
-  // Clear all offline audio
+  // Clear all offline audio and caches
   const handleClearAll = async () => {
-    const keys = Object.keys(offlineIndex);
-    if (keys.length === 0) return;
-    if (window.confirm(`Delete all ${keys.length} downloaded offline recitation(s)? This will free up device storage.`)) {
-      for (const k of keys) {
-        await deleteOfflineItem(k);
-      }
-      setOfflineIndex(getOfflineIndex());
+    if (window.confirm('Delete ALL downloaded offline recitations? This will clear all cached audio and text, freeing up storage immediately.')) {
+      await deleteAllOfflineData();
+      setOfflineIndex({});
       refreshStorage();
-      if (onShowToast) onShowToast('All offline downloads removed.');
+      if (onShowToast) onShowToast('All offline downloads and audio caches deleted.');
     }
   };
 
@@ -785,7 +782,7 @@ export function OfflineModal({
           {/* TAB 4: Downloaded Items */}
           {activeTab === 'downloaded' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem' }}>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                   Total downloaded for <strong>{reciter?.name}</strong>: <strong>{formatBytes(totalDownloadedBytes)}</strong> ({downloadedItems.length} items)
                 </div>
@@ -794,10 +791,11 @@ export function OfflineModal({
                   <button
                     className="action-btn danger"
                     onClick={handleClearAll}
-                    style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
+                    style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                    id="btn-delete-all-offline"
                   >
-                    <Trash2 size={13} />
-                    <span>Clear All</span>
+                    <Trash2 size={14} />
+                    <span>Delete All Downloads</span>
                   </button>
                 )}
               </div>
@@ -817,9 +815,18 @@ export function OfflineModal({
                   <div style={{ fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.25rem' }}>
                     No Offline Recitations Downloaded Yet
                   </div>
-                  <div style={{ fontSize: '0.8rem' }}>
+                  <div style={{ fontSize: '0.8rem', marginBottom: '1rem' }}>
                     Switch to the "Current" or "All 114 Surahs" tab above to download any Surah or Juz.
                   </div>
+                  {/* Emergency cache wipe if user wants to clear all browser caches even if manifest is empty */}
+                  <button
+                    className="action-btn danger"
+                    onClick={handleClearAll}
+                    style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                  >
+                    <Trash2 size={13} />
+                    <span>Purge Offline Storage Cache</span>
+                  </button>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '50vh', overflowY: 'auto' }}>
@@ -862,7 +869,7 @@ export function OfflineModal({
           )}
         </div>
 
-        {/* Modal Footer with Device Storage Info */}
+        {/* Modal Footer with Device Storage Info & Delete All shortcut */}
         <div
           style={{
             borderTop: '1px solid var(--border-subtle)',
@@ -884,9 +891,23 @@ export function OfflineModal({
             </span>
           </div>
 
-          <button className="action-btn" onClick={onClose} style={{ padding: '0.35rem 0.85rem' }}>
-            Done
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            {Object.keys(offlineIndex).length > 0 && (
+              <button
+                className="action-btn danger"
+                onClick={handleClearAll}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                title="Delete all downloaded items and clear storage"
+                id="btn-footer-delete-all"
+              >
+                <Trash2 size={13} />
+                <span>Delete All</span>
+              </button>
+            )}
+            <button className="action-btn" onClick={onClose} style={{ padding: '0.35rem 0.85rem' }}>
+              Done
+            </button>
+          </div>
         </div>
       </div>
     </div>
