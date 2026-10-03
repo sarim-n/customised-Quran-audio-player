@@ -125,6 +125,7 @@ export function App() {
     startRangeRepetition,
     repeatSurah,
     repeatJuz,
+    repeatRuku,
     stopPlayback,
     clearRangeRepetition,
     nextAyah,
