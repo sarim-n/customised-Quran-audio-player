@@ -699,13 +699,39 @@ export function useQuranAudio({
     }
   }, [preloadNextAyah]);
 
-  // 12. Seek audio
+  // 12. Seek audio within active Ayah
   const seekAudio = useCallback((time) => {
     const active = getActiveAudio();
     if (active && Number.isFinite(time)) {
       active.currentTime = time;
     }
   }, []);
+
+  // 13. Seek across overall Surah or Juz (jumps to target Ayah index and sets offset)
+  const seekToAyah = useCallback((index, fraction = 0) => {
+    const list = stateRef.current.ayahs;
+    if (!list || list.length === 0) return;
+    const targetIdx = Math.min(Math.max(0, index), list.length - 1);
+
+    if (targetIdx === stateRef.current.currentAyahIndex) {
+      // Seeking within currently playing Ayah
+      const active = getActiveAudio();
+      if (active && active.duration && Number.isFinite(fraction)) {
+        active.currentTime = Math.max(0, Math.min(active.duration, fraction * active.duration));
+      }
+    } else {
+      // Jump to target Ayah in Surah or Juz and play
+      loadAndPlayAyah(targetIdx);
+      if (fraction > 0) {
+        setTimeout(() => {
+          const active = getActiveAudio();
+          if (active && active.duration && Number.isFinite(fraction)) {
+            active.currentTime = Math.max(0, Math.min(active.duration, fraction * active.duration));
+          }
+        }, 120);
+      }
+    }
+  }, [loadAndPlayAyah]);
 
   return {
     // Audio State
@@ -751,6 +777,7 @@ export function useQuranAudio({
     prevAyah,
     changePlaybackSpeed,
     changeReciter,
-    seekAudio
+    seekAudio,
+    seekToAyah
   };
 }

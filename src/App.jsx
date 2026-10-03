@@ -126,7 +126,8 @@ export function App() {
     prevAyah,
     changePlaybackSpeed,
     changeReciter,
-    seekAudio
+    seekAudio,
+    seekToAyah
   } = useQuranAudio({
     ayahs,
     viewMode,
@@ -633,6 +634,7 @@ export function App() {
         onNext={nextAyah}
         onChangeSpeed={changePlaybackSpeed}
         onSeek={seekAudio}
+        onSeekOverall={seekToAyah}
         onOpenReciterModal={() => setIsReciterModalOpen(true)}
       />
 
