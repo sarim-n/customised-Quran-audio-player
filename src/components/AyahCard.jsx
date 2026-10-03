@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Repeat, Bookmark, Flag, X } from 'lucide-react';
+import { Play, Pause, Repeat, Bookmark, Flag, X, Layers } from 'lucide-react';
 import { REPEAT_PRESETS } from '../data/quranMeta';
 
 export function AyahCard({
@@ -20,6 +20,7 @@ export function AyahCard({
   onPlay,
   onPause,
   onRepeatAyah,
+  onRepeatRuku,
   onSetRangeStart,
   onSetRangeEnd,
   onClearRange
@@ -274,9 +275,39 @@ export function AyahCard({
                     </button>
                   </form>
                 )}
+
+                {/* Repeat Ruku option in popover */}
+                {onRepeatRuku && (
+                  <button
+                    type="button"
+                    className="action-btn"
+                    onClick={() => {
+                      setShowRepeatMenu(false);
+                      onRepeatRuku(index, 'infinity');
+                    }}
+                    style={{ marginTop: '0.25rem', width: '100%', justifyContent: 'center' }}
+                    id={`popover-repeat-ruku-${ayah.numberInSurah}`}
+                  >
+                    <Layers size={13} />
+                    <span>Repeat Entire Ruku (∞)</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
+
+          {/* Repeat Current Ruku Button */}
+          {onRepeatRuku && (
+            <button
+              className={`action-btn ${isCurrentAyah && isPlaying && playbackMode === 'ruku' ? 'active' : ''}`}
+              onClick={() => onRepeatRuku(index, 'infinity')}
+              title={`Repeat the entire Ruku containing Ayah ${ayah.numberInSurah} infinitely`}
+              id={`ayah-repeat-ruku-btn-${ayah.numberInSurah}`}
+            >
+              <Layers size={13} />
+              <span>Repeat Ruku</span>
+            </button>
+          )}
 
           {/* Set Range Start & End Buttons */}
           <button

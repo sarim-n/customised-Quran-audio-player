@@ -24,13 +24,18 @@ export function RepetitionToolbar({
   onStopPlayback,
   onRepeatSurah,
   onRepeatJuz,
+  onRepeatRuku,
   surahRepeatCount,
   juzRepeatCount
 }) {
-  const [activeTab, setActiveTab] = useState('range'); // 'range' | 'surah' | 'juz'
+  const [activeTab, setActiveTab] = useState('range'); // 'range' | 'ruku' | 'surah' | 'juz'
   const [selectedRangeRepeat, setSelectedRangeRepeat] = useState(rangeRepeatCount || 3);
   const [customRangeVal, setCustomRangeVal] = useState('');
   const [isCustomRange, setIsCustomRange] = useState(false);
+
+  const [selectedRukuRepeat, setSelectedRukuRepeat] = useState('infinity');
+  const [customRukuVal, setCustomRukuVal] = useState('');
+  const [isCustomRuku, setIsCustomRuku] = useState(false);
 
   const [selectedSurahRepeat, setSelectedSurahRepeat] = useState(surahRepeatCount || 1);
   const [customSurahVal, setCustomSurahVal] = useState('');
@@ -208,6 +213,42 @@ export function RepetitionToolbar({
   // Surah display name for active badge
   const activeSurahName = selectedSurah?.surahEnglishName || '';
 
+  // Current Ruku metadata for active tab
+  const currentRukuInfo = useMemo(() => {
+    if (!ayahs || ayahs.length === 0) return null;
+    const targetAyah = currentAyah || ayahs[0];
+    if (!targetAyah || targetAyah.ruku === undefined) return null;
+    const targetRuku = targetAyah.ruku;
+    const rukuAyahs = ayahs.filter(a => a.ruku === targetRuku);
+    if (rukuAyahs.length === 0) return null;
+    const startAyah = rukuAyahs[0].numberInSurah;
+    const endAyah = rukuAyahs[rukuAyahs.length - 1].numberInSurah;
+    const surahName = rukuAyahs[0].surahEnglishName || '';
+    return {
+      ruku: targetRuku,
+      startAyah,
+      endAyah,
+      surahName,
+      count: rukuAyahs.length
+    };
+  }, [ayahs, currentAyah]);
+
+  // Handle Ruku Repeat launch
+  const handleLaunchRuku = () => {
+    let count = selectedRukuRepeat;
+    if (isCustomRuku) {
+      const parsed = parseInt(customRukuVal, 10);
+      if (isNaN(parsed) || parsed <= 0) {
+        alert('Please enter a valid positive number for repetition count (e.g. 5).');
+        return;
+      }
+      count = Math.min(parsed, 1000);
+    }
+    if (onRepeatRuku) {
+      onRepeatRuku(null, count);
+    }
+  };
+
   return (
     <div className="control-toolbar">
       {/* Navigation tabs for Repetition modes */}
@@ -219,6 +260,15 @@ export function RepetitionToolbar({
         >
           <Repeat size={16} />
           <span>Range Repetition</span>
+        </button>
+
+        <button
+          className={`toolbar-tab ${activeTab === 'ruku' ? 'active' : ''}`}
+          onClick={() => setActiveTab('ruku')}
+          id="tab-ruku-repetition"
+        >
+          <Layers size={16} />
+          <span>Ruku Repetition</span>
         </button>
 
         {viewMode === 'surah' ? (
@@ -262,6 +312,7 @@ export function RepetitionToolbar({
               <Repeat size={14} />
               {playbackMode === 'ayah' && 'Ayah Repetition Active'}
               {playbackMode === 'range' && `Range: ${activeSurahName} ${rangeStart}–${rangeEnd}`}
+              {playbackMode === 'ruku' && `Ruku Loop: ${activeSurahName} Ayahs ${rangeStart}–${rangeEnd}`}
               {playbackMode === 'surah' && 'Surah Repetition Active'}
               {playbackMode === 'juz' && 'Juz Repetition Active'}
             </span>
@@ -519,6 +570,101 @@ export function RepetitionToolbar({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Ruku Repetition Content */}
+      {activeTab === 'ruku' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+            Automatically detects the Ruku section containing the active Ayah, plays all Ayahs from Ruku start to end, and repeats the complete Ruku.
+          </div>
+
+          {currentRukuInfo && (
+            <div
+              style={{
+                background: 'var(--bg-subtle)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.75rem 1rem',
+                fontSize: '0.875rem'
+              }}
+            >
+              <span style={{ fontWeight: 600 }}>Active Ruku Detected: </span>
+              <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                {currentRukuInfo.surahName} • Ayahs {currentRukuInfo.startAyah} to {currentRukuInfo.endAyah}
+              </span>
+              <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem', fontSize: '0.8rem' }}>
+                ({currentRukuInfo.count} verses)
+              </span>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Ruku Repeat Count:</span>
+            <div className="preset-group">
+              {REPEAT_PRESETS.map(preset => {
+                const label = preset === 'infinity' ? '∞' : `${preset}×`;
+                const isActive = !isCustomRuku && selectedRukuRepeat === preset;
+                return (
+                  <button
+                    key={preset}
+                    className={`preset-chip ${isActive ? 'active' : ''}`}
+                    onClick={() => {
+                      setIsCustomRuku(false);
+                      setSelectedRukuRepeat(preset);
+                    }}
+                    id={`ruku-preset-${preset}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+
+              <button
+                className={`preset-chip ${isCustomRuku ? 'active' : ''}`}
+                onClick={() => setIsCustomRuku(true)}
+                id="ruku-preset-custom"
+              >
+                Custom
+              </button>
+
+              {isCustomRuku && (
+                <div className="custom-input-wrap">
+                  <input
+                    type="number"
+                    min="1"
+                    max="1000"
+                    placeholder="e.g. 5"
+                    value={customRukuVal}
+                    onChange={e => {
+                      setCustomRukuVal(e.target.value);
+                      const num = parseInt(e.target.value, 10);
+                      if (!isNaN(num) && num > 0) setSelectedRukuRepeat(num);
+                    }}
+                    className="number-input"
+                    autoFocus
+                    id="ruku-custom-number-input"
+                  />
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>times</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <button
+              className="action-btn primary"
+              onClick={handleLaunchRuku}
+              id="btn-start-ruku-repeat"
+              style={{ fontWeight: 600, padding: '0.6rem 1.25rem' }}
+            >
+              <Layers size={16} />
+              <span>
+                ▶ Repeat Current Ruku ({currentRukuInfo ? `${currentRukuInfo.surahName} Ayahs ${currentRukuInfo.startAyah}–${currentRukuInfo.endAyah}` : 'Active Ruku'} • {selectedRukuRepeat === 'infinity' ? '∞' : `${selectedRukuRepeat}×`})
+              </span>
+            </button>
+          </div>
         </div>
       )}
 

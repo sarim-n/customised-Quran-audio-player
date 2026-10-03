@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Pause, Square, SkipBack, SkipForward, Volume2, User, Loader2, Repeat, RotateCcw } from 'lucide-react';
+import { Play, Pause, Square, SkipBack, SkipForward, Volume2, User, Loader2, Repeat, RotateCcw, Layers } from 'lucide-react';
 import { PLAYBACK_SPEEDS } from '../data/quranMeta';
 
 export function PlayerBar({
@@ -94,6 +94,14 @@ export function PlayerBar({
         <span className="badge-tag">
           <Repeat size={12} />
           Range: {rangeSurahName ? `${rangeSurahName} ` : ''}Ayahs {rangeStart}–{rangeEnd} • Cycle {currentCycle} / {repeatTarget === 'infinity' ? '∞' : `${repeatTarget}×`}
+        </span>
+      );
+    }
+    if (playbackMode === 'ruku') {
+      return (
+        <span className="badge-tag" style={{ background: 'var(--primary-light)', color: 'var(--primary)', borderColor: 'var(--primary)' }}>
+          <Layers size={12} />
+          Ruku Loop: {rangeSurahName ? `${rangeSurahName} ` : ''}Ayahs {rangeStart}–{rangeEnd} • Cycle {currentCycle} / {repeatTarget === 'infinity' ? '∞' : `${repeatTarget}×`}
         </span>
       );
     }

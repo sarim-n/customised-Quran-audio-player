@@ -612,6 +612,7 @@ export function App() {
             onStopPlayback={stopPlayback}
             onRepeatSurah={repeatSurah}
             onRepeatJuz={repeatJuz}
+            onRepeatRuku={repeatRuku}
             surahRepeatCount={surahRepeatCount}
             juzRepeatCount={juzRepeatCount}
           />
@@ -661,7 +662,7 @@ export function App() {
                 }
               }
 
-              const isRangeActive = rangeStart !== null || playbackMode === 'range';
+              const isRangeActive = rangeStart !== null || playbackMode === 'range' || playbackMode === 'ruku';
 
               // Check if a new Surah starts at this ayah in Juz view
               const isNewSurahInJuz = viewMode === 'juz' && idx > 0 && ayah.surahNumber !== ayahs[idx - 1].surahNumber;
@@ -713,6 +714,7 @@ export function App() {
                     onPlay={playAyah}
                     onPause={togglePlayPause}
                     onRepeatAyah={repeatSingleAyah}
+                    onRepeatRuku={(targetIdx, count) => repeatRuku(targetIdx, count)}
                     onSetRangeStart={() => handleSetRangeStart(ayah)}
                     onSetRangeEnd={() => handleSetRangeEnd(ayah)}
                     onClearRange={handleClearRange}

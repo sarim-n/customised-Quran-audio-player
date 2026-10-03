@@ -387,7 +387,7 @@ export function useQuranAudio({
       return null;
     }
 
-    if (mode === 'range') {
+    if (mode === 'range' || mode === 'ruku') {
       let startIndex = 0;
       let endIndex = Math.min(list.length - 1, 4);
 
@@ -575,8 +575,8 @@ export function useQuranAudio({
       return;
     }
 
-    // Range Repetition Mode
-    if (mode === 'range') {
+    // Range & Ruku Repetition Mode
+    if (mode === 'range' || mode === 'ruku') {
       let startIndex = 0;
       let endIndex = Math.min(list.length - 1, 4);
 
@@ -785,12 +785,47 @@ export function useQuranAudio({
     loadAndPlayAyah(0);
   }, [ayahs, juzRepeatCount, loadAndPlayAyah]);
 
+  // 7. Repeat Current Ruku (detects Ruku boundary containing target verse and repeats target times)
+  const repeatRuku = useCallback((targetIndex = null, count = 'infinity') => {
+    const list = stateRef.current.ayahs;
+    if (!list || list.length === 0) return;
+
+    const idx = (targetIndex !== null && targetIndex >= 0 && targetIndex < list.length)
+      ? targetIndex
+      : stateRef.current.currentAyahIndex;
+    const currentAyah = list[idx] || list[0];
+    if (!currentAyah || currentAyah.ruku === undefined) return;
+
+    const targetRuku = currentAyah.ruku;
+    const firstRukuAyah = list.find(a => a.ruku === targetRuku);
+    const lastRukuAyah = [...list].reverse().find(a => a.ruku === targetRuku);
+
+    if (!firstRukuAyah || !lastRukuAyah) return;
+
+    const startIndex = list.indexOf(firstRukuAyah);
+    const endIndex = list.indexOf(lastRukuAyah);
+
+    const startNum = firstRukuAyah.numberInSurah;
+    const endNum = lastRukuAyah.numberInSurah;
+    const surahNum = firstRukuAyah.surahNumber;
+
+    setRangeSurahNumber(surahNum);
+    setRangeStart(startNum);
+    setRangeEnd(endNum);
+    setRangeRepeatCount(count);
+    setPlaybackMode('ruku');
+    setRepeatTarget(count);
+    setCurrentCycle(1);
+
+    loadAndPlayAyah(startIndex);
+  }, [loadAndPlayAyah]);
+
   // 8. Next Ayah
   const nextAyah = useCallback(() => {
     const { ayahs: list, currentAyahIndex: idx, playbackMode: mode, rangeEnd: rEnd } = stateRef.current;
     if (!list || list.length === 0) return;
 
-    if (mode === 'range') {
+    if (mode === 'range' || mode === 'ruku') {
       const maxIndex = Math.min(list.length - 1, rEnd - 1);
       if (idx < maxIndex) {
         loadAndPlayAyah(idx + 1);
@@ -812,7 +847,7 @@ export function useQuranAudio({
       return;
     }
 
-    if (mode === 'range') {
+    if (mode === 'range' || mode === 'ruku') {
       const minIndex = Math.max(0, rStart - 1);
       if (idx > minIndex) {
         loadAndPlayAyah(idx - 1);
@@ -979,6 +1014,7 @@ export function useQuranAudio({
     startRangeRepetition,
     repeatSurah,
     repeatJuz,
+    repeatRuku,
     stopPlayback,
     clearRangeRepetition,
     nextAyah,
