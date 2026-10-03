@@ -82,12 +82,18 @@ export function PlayerBar({
     );
   };
 
+  const handleCycleSpeed = () => {
+    const idx = PLAYBACK_SPEEDS.indexOf(playbackSpeed);
+    const nextIdx = (idx + 1) % PLAYBACK_SPEEDS.length;
+    onChangeSpeed(PLAYBACK_SPEEDS[nextIdx]);
+  };
+
   return (
     <footer className="bottom-player" id="bottom-audio-player">
       <div className="player-inner">
         {/* Scrubber row */}
         <div className="scrubber-row">
-          <span>{formatTime(audioProgress.currentTime)}</span>
+          <span className="scrubber-time">{formatTime(audioProgress.currentTime)}</span>
           <input
             type="range"
             min="0"
@@ -99,7 +105,7 @@ export function PlayerBar({
             aria-label="Seek time"
             id="audio-scrubber"
           />
-          <span>{formatTime(audioProgress.duration)}</span>
+          <span className="scrubber-time">{formatTime(audioProgress.duration)}</span>
         </div>
 
         {/* Player controls row */}
@@ -119,7 +125,7 @@ export function PlayerBar({
                 {currentAyah ? (
                   <>
                     <span>{currentAyah.surahEnglishName || currentSurah?.englishName || `Surah ${currentAyah.surahNumber}`}</span>
-                    <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
+                    <span className="player-ayah-num" style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
                       {' '}• Ayah {currentAyah.numberInSurah} {viewMode === 'juz' ? `(Juz ${currentJuz})` : ''}
                     </span>
                   </>
@@ -154,7 +160,7 @@ export function PlayerBar({
 
             {/* Stop Button */}
             <button
-              className="control-btn"
+              className="control-btn stop-control-btn"
               onClick={onStop}
               title="Stop Audio and Reset Repetition"
               id="player-stop-btn"
@@ -191,8 +197,8 @@ export function PlayerBar({
 
           {/* Right: Playback Speed & Reciter */}
           <div className="player-extra-controls">
-            {/* Speed Selector Presets */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            {/* Desktop Speed Selector Presets */}
+            <div className="desktop-speed-group" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', marginRight: '0.15rem' }}>Speed:</span>
               {PLAYBACK_SPEEDS.map(speed => (
                 <button
@@ -206,9 +212,19 @@ export function PlayerBar({
               ))}
             </div>
 
+            {/* Mobile single compact speed button */}
+            <button
+              className="speed-badge-btn mobile-speed-btn"
+              onClick={handleCycleSpeed}
+              title="Tap to cycle playback speed"
+              id="mobile-speed-cycle-btn"
+            >
+              {playbackSpeed}×
+            </button>
+
             {/* Reciter trigger */}
             <button
-              className="action-btn btn-pill"
+              className="action-btn btn-pill player-reciter-pill"
               onClick={onOpenReciterModal}
               title="Change Reciter"
               id="player-reciter-btn"

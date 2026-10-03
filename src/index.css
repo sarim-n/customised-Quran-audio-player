@@ -667,6 +667,14 @@ html, body {
   color: var(--primary-text);
 }
 
+.mobile-speed-btn {
+  display: none;
+}
+
+.desktop-speed-group {
+  display: flex;
+}
+
 /* Scrubber / Progress Bar */
 .scrubber-row {
   display: flex;
@@ -864,34 +872,220 @@ html, body {
   border-color: var(--primary);
 }
 
-/* Responsive adjustments */
+/* Responsive adjustments for mobile */
 @media (max-width: 768px) {
+  /* Compact Sticky Header */
+  .app-header {
+    top: 0;
+  }
+
   .header-inner {
-    padding: 0.6rem 0.85rem;
+    padding: 0.4rem 0.65rem 0.4rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
   }
+
+  .app-brand {
+    align-self: flex-start;
+    gap: 0.45rem;
+  }
+
+  .brand-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-sm);
+  }
+
+  .brand-icon svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .brand-title {
+    font-size: 0.925rem;
+    font-weight: 700;
+  }
+
+  /* Subtitle hidden on mobile to conserve vertical screen space */
+  .brand-subtitle {
+    display: none !important;
+  }
+
+  /* Navbar options strictly next to each other in a single horizontal scrollable row */
+  .header-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    gap: 0.35rem !important;
+    padding-bottom: 2px !important;
+    width: 100% !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+
+  .header-actions::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .header-actions .action-btn,
+  .header-actions .icon-btn {
+    flex-shrink: 0 !important;
+    height: 30px !important;
+    padding: 0.25rem 0.55rem !important;
+    font-size: 0.775rem !important;
+    border-radius: var(--radius-sm) !important;
+  }
+
+  .header-actions .action-btn svg,
+  .header-actions .icon-btn svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
   .main-content {
-    padding: 1rem 0.75rem;
+    padding: 0.75rem 0.65rem;
   }
+
   .ayah-card {
     padding: 1rem 0.85rem;
   }
+
   .ayah-arabic {
     font-size: 1.6rem;
     line-height: 2.1;
   }
+
+  /* Ultra-Compact Bottom Player on Mobile */
+  .bottom-player {
+    padding: 0.3rem 0.65rem 0.45rem !important;
+  }
+
+  .player-inner {
+    gap: 0.2rem !important;
+  }
+
+  .scrubber-row {
+    gap: 0.35rem !important;
+  }
+
+  .scrubber-time {
+    font-size: 0.65rem !important;
+    min-width: 28px !important;
+  }
+
+  .scrubber-slider {
+    height: 3px !important;
+  }
+
   .player-top-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.5rem;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.35rem !important;
   }
+
   .player-info {
-    justify-content: space-between;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    gap: 0.35rem !important;
   }
+
+  .player-avatar {
+    display: none !important;
+  }
+
+  .player-details {
+    min-width: 0 !important;
+  }
+
+  .player-surah-title {
+    font-size: 0.8rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .player-ayah-num {
+    font-size: 0.75rem !important;
+  }
+
+  .player-mode-badge {
+    font-size: 0.65rem !important;
+    margin-top: 1px !important;
+  }
+
+  .badge-tag {
+    padding: 0.05rem 0.35rem !important;
+    font-size: 0.65rem !important;
+  }
+
+  .player-controls {
+    flex: 0 0 auto !important;
+    gap: 0.25rem !important;
+  }
+
+  .play-pause-btn {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  .play-pause-btn svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  .control-btn {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  .control-btn svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  .stop-control-btn {
+    display: none !important;
+  }
+
   .player-extra-controls {
-    justify-content: center;
+    flex: 0 0 auto !important;
+    gap: 0.25rem !important;
   }
+
+  .desktop-speed-group {
+    display: none !important;
+  }
+
+  .mobile-speed-btn {
+    display: inline-flex !important;
+    padding: 0.2rem 0.45rem !important;
+    font-size: 0.725rem !important;
+    height: 28px !important;
+    border-radius: var(--radius-sm) !important;
+  }
+
+  .player-reciter-pill {
+    padding: 0.2rem 0.45rem !important;
+    font-size: 0.725rem !important;
+    height: 28px !important;
+  }
+
+  .player-reciter-pill span {
+    max-width: 50px !important;
+  }
+
+  /* Major space saver: only 75px bottom padding on mobile so majority of screen is dedicated to Quran Ayahs! */
   .app-container {
-    padding-bottom: 175px;
+    padding-bottom: 75px !important;
+  }
+
+  .floating-sync-btn {
+    bottom: 82px !important;
+    right: 14px !important;
+    padding: 0.45rem 0.8rem !important;
+    font-size: 0.775rem !important;
   }
 }
 
