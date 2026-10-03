@@ -1,18 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { PLAYBACK_SPEEDS } from '../data/quranMeta';
+import { getAyahAudioUrl } from '../services/quranApi';
+import { getOfflineAudioBlob } from '../services/offlineStorage';
 
-// CDN Base URL for Quran Ayah MP3s (128kbps)
-const CDN_BASE_URL = 'https://cdn.islamic.network/quran/audio/128';
-
-/**
- * Helper to compute legitimate Al Quran Cloud CDN audio URL
- * Format: https://cdn.islamic.network/quran/audio/128/{edition}/{globalAyahNumber}.mp3
- */
-export function getAyahAudioUrl(ayah, reciter) {
-  if (!ayah || !ayah.number) return '';
-  const edition = reciter?.id || 'ar.alafasy';
-  return `${CDN_BASE_URL}/${edition}/${ayah.number}.mp3`;
-}
+export { getAyahAudioUrl };
 
 export function useQuranAudio({
   ayahs = [],
@@ -28,6 +19,12 @@ export function useQuranAudio({
 
   // Transition flag: prevents premature 'pause' state & MediaSession teardown when moving between verses
   const isTransitioningRef = useRef(false);
+
+  // Offline Audio Blob and Request tracking
+  const currentBlobUrlRef = useRef(null);
+  const currentPlayingUrlRef = useRef(null);
+  const playRequestIdRef = useRef(0);
+
 
   // Audio Playback State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -164,11 +161,27 @@ export function useQuranAudio({
       }
     };
 
-    const handleError = (e) => {
+    const handleError = async (e) => {
       if (!audio.getAttribute('src') || !audio.src || audio.src === window.location.href || audio.src.endsWith('/')) {
         return;
       }
       console.warn('Audio Player error:', e);
+
+      // Offline recovery: If network playback failed and audio.src was not a blob, try loading from offline cache
+      const currentUrl = currentPlayingUrlRef.current;
+      if (currentUrl && !audio.src.startsWith('blob:')) {
+        try {
+          const offlineBlob = await getOfflineAudioBlob(currentUrl);
+          if (offlineBlob) {
+            audio.src = offlineBlob;
+            currentBlobUrlRef.current = offlineBlob;
+            audio.currentTime = 0;
+            audio.play().catch(console.warn);
+            return;
+          }
+        } catch {}
+      }
+
       setIsBuffering(false);
       setIsPlaying(false);
       setErrorMessage('Audio playback encountered an issue. Reconnecting...');
@@ -198,6 +211,10 @@ export function useQuranAudio({
       if (silentAudio) {
         silentAudio.pause();
         silentAudio.removeAttribute('src');
+      }
+      if (currentBlobUrlRef.current && currentBlobUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(currentBlobUrlRef.current);
+        currentBlobUrlRef.current = null;
       }
       audioRef.current = null;
       silentAudioRef.current = null;
@@ -412,13 +429,13 @@ export function useQuranAudio({
 
     if (nextUrl) {
       try {
-        fetch(nextUrl, { mode: 'no-cors' }).catch(() => {});
+        fetch(nextUrl, { mode: 'cors' }).catch(() => {});
       } catch {}
     }
   }, [computeNextAyahIndex]);
 
   // Load and play audio on the single persistent audio element
-  const loadAndPlayAyah = useCallback((index, speed = null) => {
+  const loadAndPlayAyah = useCallback(async (index, speed = null) => {
     const list = stateRef.current.ayahs;
     if (!list || list.length === 0 || index < 0 || index >= list.length) {
       return;
@@ -446,8 +463,23 @@ export function useQuranAudio({
       silentAudioRef.current.play().catch(() => {});
     }
 
-    // If replaying the exact same URL (e.g. single ayah repetition)
-    if (audio.src === url) {
+    const requestId = ++playRequestIdRef.current;
+
+    // Check if offline cached audio is available in Cache API
+    let offlineBlobUrl = null;
+    try {
+      offlineBlobUrl = await getOfflineAudioBlob(url);
+    } catch (e) {
+      console.warn('Failed to retrieve offline audio blob:', e);
+    }
+
+    // If another playback request was initiated while waiting for cache, discard
+    if (requestId !== playRequestIdRef.current) return;
+
+    const playSource = offlineBlobUrl || url;
+
+    // If replaying the exact same ayah audio URL (e.g. repetition mode)
+    if (currentPlayingUrlRef.current === url && audio.src && !audio.error) {
       audio.currentTime = 0;
       audio.playbackRate = rate;
       const playPromise = audio.play();
@@ -467,7 +499,14 @@ export function useQuranAudio({
         isTransitioningRef.current = false;
       }
     } else {
-      audio.src = url;
+      // Clean up previous blob URL to prevent memory leaks
+      if (currentBlobUrlRef.current && currentBlobUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(currentBlobUrlRef.current);
+      }
+      currentBlobUrlRef.current = offlineBlobUrl;
+      currentPlayingUrlRef.current = url;
+
+      audio.src = playSource;
       audio.playbackRate = rate;
       audio.currentTime = 0;
       const playPromise = audio.play();

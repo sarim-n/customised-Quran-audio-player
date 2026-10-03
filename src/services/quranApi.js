@@ -1,10 +1,13 @@
-import { RECITERS } from '../data/quranMeta.js';
+import { RECITERS, SURAHS } from '../data/quranMeta.js';
+
+export const API_CACHE_NAME = 'quran-api-v1';
 
 const surahCache = new Map();
 const juzCache = new Map();
 
 /**
- * Fetch Surah with Arabic (Uthmani) text and English translation
+ * Fetch Surah with Arabic (Uthmani) text and English translation.
+ * Includes offline Cache API fallback for complete offline access.
  * @param {number} surahNumber (1-114)
  * @returns {Promise<{ surah: Object, ayahs: Array }>}
  */
@@ -14,11 +17,37 @@ export async function fetchSurah(surahNumber) {
     return surahCache.get(cacheKey);
   }
 
+  const apiUrl = `https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,en.sahih`;
+
   try {
-    const res = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,en.sahih`);
-    if (!res.ok) {
-      throw new Error(`Failed to load Surah ${surahNumber} (HTTP ${res.status})`);
+    let res = null;
+    try {
+      res = await fetch(apiUrl);
+      if (res.ok && typeof window !== 'undefined' && 'caches' in window) {
+        caches.open(API_CACHE_NAME).then(c => c.put(apiUrl, res.clone())).catch(() => {});
+      }
+    } catch (netErr) {
+      // Offline fallback: load from Cache Storage
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        const cache = await caches.open(API_CACHE_NAME);
+        res = await cache.match(apiUrl);
+      }
+      if (!res) throw netErr;
     }
+
+    if (!res || !res.ok) {
+      // If network response was not ok, check cache fallback
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        const cache = await caches.open(API_CACHE_NAME);
+        const cachedRes = await cache.match(apiUrl);
+        if (cachedRes) res = cachedRes;
+      }
+    }
+
+    if (!res || !res.ok) {
+      throw new Error(`Failed to load Surah ${surahNumber} (HTTP ${res ? res.status : 'offline'})`);
+    }
+
     const json = await res.json();
     if (json.code !== 200 || !json.data || json.data.length < 2) {
       throw new Error(json.data || `API returned error status ${json.code}`);
@@ -68,7 +97,7 @@ export async function fetchSurah(surahNumber) {
 }
 
 /**
- * Fetch raw Juz data from Al Quran Cloud API
+ * Fetch raw Juz data from Al Quran Cloud API with offline Cache API fallback
  * @param {number} juzNumber (1-30)
  * @returns {Promise<{ juzNumber: number, ayahs: Array }>}
  */
@@ -78,19 +107,41 @@ async function fetchRawJuz(juzNumber) {
     return juzCache.get(cacheKey);
   }
 
+  const arabicUrl = `https://api.alquran.cloud/v1/juz/${juzNumber}/quran-uthmani`;
+  const transUrl = `https://api.alquran.cloud/v1/juz/${juzNumber}/en.sahih`;
+
+  const fetchWithFallback = async (url) => {
+    try {
+      const res = await fetch(url);
+      if (res.ok && typeof window !== 'undefined' && 'caches' in window) {
+        caches.open(API_CACHE_NAME).then(c => c.put(url, res.clone())).catch(() => {});
+      }
+      return res;
+    } catch (err) {
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        const cache = await caches.open(API_CACHE_NAME);
+        const cached = await cache.match(url);
+        if (cached) return cached;
+      }
+      throw err;
+    }
+  };
+
   const [arabicRes, transRes] = await Promise.all([
-    fetch(`https://api.alquran.cloud/v1/juz/${juzNumber}/quran-uthmani`),
-    fetch(`https://api.alquran.cloud/v1/juz/${juzNumber}/en.sahih`)
+    fetchWithFallback(arabicUrl),
+    fetchWithFallback(transUrl).catch(() => null)
   ]);
 
-  if (!arabicRes.ok) {
-    throw new Error(`Failed to load Juz ${juzNumber} (HTTP ${arabicRes.status})`);
+  if (!arabicRes || !arabicRes.ok) {
+    throw new Error(`Failed to load Juz ${juzNumber} (HTTP ${arabicRes ? arabicRes.status : 'offline'})`);
   }
 
   const arabicJson = await arabicRes.json();
   let transJson = null;
-  if (transRes.ok) {
-    transJson = await transRes.json();
+  if (transRes && transRes.ok) {
+    try {
+      transJson = await transRes.json();
+    } catch {}
   }
 
   if (arabicJson.code !== 200 || !arabicJson.data?.ayahs) {
@@ -159,20 +210,6 @@ export async function fetchJuz(juzNumber, convention = 'indopak') {
         const ayah3_92 = j3Raw.ayahs.find(a => a.surahNumber === 3 && a.numberInSurah === 92);
         if (ayah3_92) ayahs = [ayah3_92, ...ayahs];
       }
-      // 4. Juz 3: ends at Surah 3 Ayah 91. Remove 3:92 from end.
-      else if (juzNumber === 3 && ayahs.length > 0 && ayahs[ayahs.length - 1].numberInSurah === 92) {
-        ayahs = ayahs.slice(0, -1);
-      }
-      // 5. Juz 11: starts at Surah 9 Ayah 94 (Ya'taziroona). Remove 9:93 from start.
-      else if (juzNumber === 11 && ayahs.length > 0 && ayahs[0].surahNumber === 9 && ayahs[0].numberInSurah === 93) {
-        ayahs = ayahs.slice(1);
-      }
-      // 6. Juz 10: ends at Surah 9 Ayah 93. Append 9:93 from Juz 11.
-      else if (juzNumber === 10 && ayahs.length > 0 && ayahs[ayahs.length - 1].numberInSurah === 92) {
-        const j11Raw = await fetchRawJuz(11);
-        const ayah9_93 = j11Raw.ayahs.find(a => a.surahNumber === 9 && a.numberInSurah === 93);
-        if (ayah9_93) ayahs = [...ayahs, ayah9_93];
-      }
     }
 
     const result = {
@@ -190,15 +227,47 @@ export async function fetchJuz(juzNumber, convention = 'indopak') {
 }
 
 /**
- * Get Audio URL for an ayah given a reciter
+ * Convert global ayah index (1-6236) to { surahNumber, numberInSurah }
+ */
+export function getSurahAndAyahFromGlobal(globalAyahNumber) {
+  let remaining = globalAyahNumber;
+  for (const surah of SURAHS) {
+    if (remaining <= surah.numberOfAyahs) {
+      return { surahNumber: surah.number, numberInSurah: remaining };
+    }
+    remaining -= surah.numberOfAyahs;
+  }
+  return { surahNumber: 1, numberInSurah: 1 };
+}
+
+/**
+ * Get Audio URL for an ayah given a reciter (EveryAyah CDN with 100% CORS and high quality audio)
  * @param {Object} ayah
- * @param {Object} reciter
+ * @param {Object|string} reciter
  * @returns {string}
  */
 export function getAyahAudioUrl(ayah, reciter) {
-  if (!ayah || !ayah.number) return '';
-  const base = reciter?.audioBase || RECITERS[0].audioBase;
-  return `${base}/${ayah.number}.mp3`;
+  if (!ayah) return '';
+  let sNum = ayah.surahNumber;
+  let aNum = ayah.numberInSurah;
+
+  if (!sNum || !aNum) {
+    if (ayah.number) {
+      const pos = getSurahAndAyahFromGlobal(ayah.number);
+      sNum = pos.surahNumber;
+      aNum = pos.numberInSurah;
+    } else {
+      return '';
+    }
+  }
+
+  const surahStr = String(sNum).padStart(3, '0');
+  const ayahStr = String(aNum).padStart(3, '0');
+
+  const recId = reciter?.id || (typeof reciter === 'string' ? reciter : 'ar.alafasy');
+  const rec = RECITERS.find(r => r.id === recId) || RECITERS[0];
+  const folder = rec.folder || 'Alafasy_128kbps';
+  return `https://everyayah.com/data/${folder}/${surahStr}${ayahStr}.mp3`;
 }
 
 /**

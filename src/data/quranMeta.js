@@ -1108,45 +1108,52 @@ export const RECITERS = [
     id: "ar.alafasy",
     name: "Mishary Rashid Alafasy",
     arabicName: "مشاري بن راشد العفاسي",
-    audioBase: "https://cdn.islamic.network/quran/audio/128/ar.alafasy",
+    folder: "Alafasy_128kbps",
+    audioBase: "https://everyayah.com/data/Alafasy_128kbps",
     subtext: "Clear and Melodic (Default)"
   },
   {
     id: "ar.husary",
     name: "Mahmoud Khalil Al-Husary",
     arabicName: "محمود خليل الحصري",
-    audioBase: "https://cdn.islamic.network/quran/audio/128/ar.husary",
+    folder: "Husary_128kbps",
+    audioBase: "https://everyayah.com/data/Husary_128kbps",
     subtext: "Ideal for Tajweed and Memorization"
   },
   {
     id: "ar.minshawi",
     name: "Muhammad Siddiq Al-Minshawi",
     arabicName: "محمد صديق المنشاوي",
-    audioBase: "https://cdn.islamic.network/quran/audio/128/ar.minshawi",
+    folder: "Minshawy_Murattal_128kbps",
+    audioBase: "https://everyayah.com/data/Minshawy_Murattal_128kbps",
     subtext: "Soulful and Reverent"
   },
   {
     id: "ar.abdulbasitmurattal",
     name: "Abdul Basit Abdul Samad",
     arabicName: "عبد الباسط عبد الصمد",
-    audioBase: "https://cdn.islamic.network/quran/audio/192/ar.abdulbasitmurattal",
+    folder: "Abdul_Basit_Murattal_192kbps",
+    audioBase: "https://everyayah.com/data/Abdul_Basit_Murattal_192kbps",
     subtext: "Murattal"
   },
   {
     id: "ar.shaatree",
     name: "Abu Bakr Ash-Shaatree",
     arabicName: "أبو بكر الشاطري",
-    audioBase: "https://cdn.islamic.network/quran/audio/128/ar.shaatree",
+    folder: "Abu_Bakr_Ash-Shaatree_128kbps",
+    audioBase: "https://everyayah.com/data/Abu_Bakr_Ash-Shaatree_128kbps",
     subtext: "Smooth and Contemplative"
   },
   {
     id: "ar.hudhaify",
     name: "Ali Al-Hudhaify",
     arabicName: "علي بن عبد الرحمن الحذيفي",
-    audioBase: "https://cdn.islamic.network/quran/audio/128/ar.hudhaify",
+    folder: "Hudhaify_128kbps",
+    audioBase: "https://everyayah.com/data/Hudhaify_128kbps",
     subtext: "Measured and Distinct"
   }
 ];
 
 export const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 export const REPEAT_PRESETS = [1, 3, 5, 10, 'infinity'];
+

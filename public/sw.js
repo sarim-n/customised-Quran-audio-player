@@ -1,5 +1,5 @@
 // Quran Memorizer PWA Service Worker
-const CACHE_NAME = 'quran-memorizer-v1';
+const CACHE_NAME = 'quran-memorizer-v2';
 const API_CACHE = 'quran-api-v1';
 const AUDIO_CACHE = 'quran-audio-v1';
 
@@ -43,48 +43,24 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// If mistakenly loaded on localhost or dev port, unregister immediately
-const isDevHost = 
-  self.location.hostname === 'localhost' || 
-  self.location.hostname === '127.0.0.1' || 
-  self.location.port === '5173';
-
-if (isDevHost) {
-  self.addEventListener('install', () => {
-    self.skipWaiting();
-  });
-  self.addEventListener('activate', (event) => {
-    event.waitUntil(
-      self.registration.unregister().then(() => {
-        return self.clients.matchAll();
-      }).then((clients) => {
-        clients.forEach((client) => client.navigate(client.url));
-      })
-    );
-  });
-}
-
 // Fetch: smart caching strategies
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests, localhost/dev server, and Vite internal HMR modules
+  // Skip non-GET requests and internal Vite HMR development modules
   if (
-    isDevHost ||
     request.method !== 'GET' ||
-    url.hostname === 'localhost' ||
-    url.hostname === '127.0.0.1' ||
-    url.port === '5173' ||
     url.pathname.startsWith('/@') ||
     url.pathname.includes('node_modules') ||
-    url.pathname.includes('vite')
+    url.pathname.includes('vite') ||
+    url.pathname.includes('hot-update')
   ) {
     return;
   }
 
-  // 1. Audio stream requests (cdn.islamic.network): Serve from AUDIO_CACHE if downloaded (with 206 Partial Content support for mobile Safari/Chrome)
-  if (url.hostname.includes('islamic.network') || url.pathname.endsWith('.mp3')) {
+  // 1. Audio stream requests (EveryAyah and Islamic Network): Serve from AUDIO_CACHE if downloaded (with 206 Partial Content support for mobile Safari/Chrome)
+  if (url.hostname.includes('everyayah.com') || url.hostname.includes('islamic.network') || url.pathname.endsWith('.mp3')) {
     event.respondWith(
       caches.open(AUDIO_CACHE).then(async (cache) => {
         const cached = await cache.match(request.url);

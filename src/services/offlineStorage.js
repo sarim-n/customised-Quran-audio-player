@@ -1,8 +1,7 @@
 // Offline Recitation Storage & Download Manager
 // Uses Cache API & Service Worker to provide 100% offline access to Quran text and audio
 
-import { fetchSurah, fetchJuz } from './quranApi';
-import { getAyahAudioUrl } from '../hooks/useQuranAudio';
+import { fetchSurah, fetchJuz, getAyahAudioUrl } from './quranApi';
 import { SURAHS } from '../data/quranMeta';
 
 export const AUDIO_CACHE_NAME = 'quran-audio-v1';
@@ -54,15 +53,20 @@ export function isItemDownloaded(type, id, reciterId) {
  * Get offline cached Blob URL for an audio URL if available
  */
 export async function getOfflineAudioBlob(url) {
-  if (typeof window === 'undefined' || !('caches' in window)) return null;
+  if (!url || typeof window === 'undefined' || !('caches' in window)) return null;
   try {
     const cache = await caches.open(AUDIO_CACHE_NAME);
-    const cachedResponse = await cache.match(url);
+    let cachedResponse = await cache.match(url);
+    if (!cachedResponse) {
+      cachedResponse = await cache.match(url, { ignoreSearch: true });
+    }
     if (cachedResponse) {
       const blob = await cachedResponse.blob();
       return URL.createObjectURL(blob);
     }
-  } catch {}
+  } catch (err) {
+    console.warn('Failed to get offline audio blob:', err);
+  }
   return null;
 }
 
@@ -136,6 +140,8 @@ export async function downloadSurah(surahNumber, reciter, onProgress = () => {},
           const cl = res.headers.get('content-length');
           if (cl) totalBytes += parseInt(cl, 10);
           await audioCache.put(audioUrl, res.clone());
+        } else {
+          throw new Error(`HTTP ${res.status}`);
         }
       }
     } catch (fetchErr) {
@@ -194,6 +200,20 @@ export async function downloadJuz(juzNumber, convention = 'indopak', reciter, on
     throw new Error(`No ayahs found for Juz ${juzNumber}`);
   }
 
+  try {
+    const apiCache = await caches.open(API_CACHE_NAME);
+    const arabicUrl = `https://api.alquran.cloud/v1/juz/${juzNumber}/quran-uthmani`;
+    const transUrl = `https://api.alquran.cloud/v1/juz/${juzNumber}/en.sahih`;
+    const [arRes, trRes] = await Promise.all([
+      fetch(arabicUrl).catch(() => null),
+      fetch(transUrl).catch(() => null)
+    ]);
+    if (arRes && arRes.ok) await apiCache.put(arabicUrl, arRes.clone());
+    if (trRes && trRes.ok) await apiCache.put(transUrl, trRes.clone());
+  } catch (err) {
+    console.warn('Juz text caching warning:', err);
+  }
+
   const audioCache = await caches.open(AUDIO_CACHE_NAME);
   let totalBytes = 0;
   const total = ayahs.length;
@@ -225,6 +245,8 @@ export async function downloadJuz(juzNumber, convention = 'indopak', reciter, on
           const cl = res.headers.get('content-length');
           if (cl) totalBytes += parseInt(cl, 10);
           await audioCache.put(audioUrl, res.clone());
+        } else {
+          throw new Error(`HTTP ${res.status}`);
         }
       }
     } catch (fetchErr) {
@@ -351,6 +373,14 @@ export async function deleteOfflineItem(manifestKey) {
       const surahData = await fetchSurah(item.id).catch(() => null);
       if (surahData?.ayahs) {
         for (const ayah of surahData.ayahs) {
+          const audioUrl = getAyahAudioUrl(ayah, reciter);
+          await audioCache.delete(audioUrl);
+        }
+      }
+    } else if (item.type === 'juz') {
+      const juzData = await fetchJuz(item.id).catch(() => null);
+      if (juzData?.ayahs) {
+        for (const ayah of juzData.ayahs) {
           const audioUrl = getAyahAudioUrl(ayah, reciter);
           await audioCache.delete(audioUrl);
         }
