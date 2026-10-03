@@ -122,6 +122,7 @@ export function App() {
     repeatSurah,
     repeatJuz,
     stopPlayback,
+    clearRangeRepetition,
     nextAyah,
     prevAyah,
     changePlaybackSpeed,
@@ -377,6 +378,60 @@ export function App() {
     }
   }, [showToast]);
 
+  // Set Range Start Handler
+  const handleSetRangeStart = useCallback((ayah) => {
+    if (viewMode === 'juz') {
+      setRangeSurahNumber(ayah.surahNumber);
+    } else {
+      setRangeSurahNumber(currentSurahNumber);
+    }
+    setRangeStart(ayah.numberInSurah);
+    setRangeEnd(null);
+    showToast(`Set Ayah ${ayah.numberInSurah} as Start. Click 'Set End' on a later verse to start loop.`);
+  }, [viewMode, currentSurahNumber, setRangeSurahNumber, setRangeStart, setRangeEnd, showToast]);
+
+  // Set Range End Handler (strictly checks that End > Start, then loops infinitely)
+  const handleSetRangeEnd = useCallback((ayah) => {
+    if (rangeStart === null || rangeStart === undefined) {
+      showToast("Please click 'Set Start' on an earlier verse first.");
+      return;
+    }
+
+    let isStrictlyAfter = false;
+    if (viewMode === 'surah') {
+      isStrictlyAfter = ayah.numberInSurah > rangeStart;
+    } else {
+      const targetSurahNum = rangeSurahNumber || ayahs[0]?.surahNumber;
+      const startIdx = ayahs.findIndex(a =>
+        (!targetSurahNum || a.surahNumber === targetSurahNum) &&
+        a.numberInSurah === rangeStart
+      );
+      const endIdx = ayahs.findIndex(a => a.number === ayah.number);
+      isStrictlyAfter = startIdx !== -1 && endIdx > startIdx;
+    }
+
+    if (!isStrictlyAfter) {
+      showToast(`End verse must be strictly after Start verse (Ayah ${rangeStart}).`);
+      return;
+    }
+
+    setRangeEnd(ayah.numberInSurah);
+    const targetSurah = viewMode === 'juz' ? ayah.surahNumber : currentSurahNumber;
+    if (viewMode === 'juz') {
+      setRangeSurahNumber(ayah.surahNumber);
+    }
+
+    // Immediately start repeating from Start to End infinitely
+    startRangeRepetition(rangeStart, ayah.numberInSurah, 'infinity', targetSurah);
+    showToast(`Repeating Ayahs ${rangeStart}–${ayah.numberInSurah} infinitely! Click '✕' on any verse to stop.`);
+  }, [rangeStart, viewMode, currentSurahNumber, rangeSurahNumber, ayahs, setRangeEnd, setRangeSurahNumber, startRangeRepetition, showToast]);
+
+  // Cancel / Clear Range Loop Handler
+  const handleClearRange = useCallback(() => {
+    clearRangeRepetition();
+    showToast("Range loop cancelled.");
+  }, [clearRangeRepetition, showToast]);
+
   // Get current Juz metadata
   const currentJuzMeta = juzConvention === 'indopak'
     ? INDOPAK_JUZ_METADATA.find(j => j.id === currentJuzNumber)
@@ -523,24 +578,36 @@ export function App() {
               const isCurrent = currentAyahIndex === idx;
               const isHighlighted = ayah.number === highlightedAyahNumber;
 
-              // Find indices of rangeStart and rangeEnd for the designated Surah
-              const targetSurahNum = rangeSurahNumber || (viewMode === 'surah' ? currentSurahNumber : ayahs[0]?.surahNumber);
-              let startIdx = ayahs.findIndex(a =>
-                (viewMode === 'juz' && targetSurahNum ? a.surahNumber === targetSurahNum : true) &&
-                a.numberInSurah === rangeStart
-              );
-              let endIdx = ayahs.findIndex(a =>
-                (viewMode === 'juz' && targetSurahNum ? a.surahNumber === targetSurahNum : true) &&
-                a.numberInSurah === rangeEnd
-              );
-              if (startIdx === -1) startIdx = 0;
-              if (endIdx === -1) endIdx = Math.min(ayahs.length - 1, 4);
+              // Accurate range highlight computation (only when a range is set)
+              let isStart = false;
+              let isEnd = false;
+              let inRange = false;
 
-              const normStartIdx = Math.min(startIdx, endIdx);
-              const normEndIdx = Math.max(startIdx, endIdx);
-              const inRange = idx >= normStartIdx && idx <= normEndIdx;
-              const isStart = idx === normStartIdx;
-              const isEnd = idx === normEndIdx;
+              if (rangeStart !== null && rangeStart !== undefined) {
+                const targetSurahNum = rangeSurahNumber || (viewMode === 'surah' ? currentSurahNumber : ayahs[0]?.surahNumber);
+                const startIdx = ayahs.findIndex(a =>
+                  (!targetSurahNum || a.surahNumber === targetSurahNum) &&
+                  a.numberInSurah === rangeStart
+                );
+
+                if (startIdx !== -1) {
+                  if (idx === startIdx) isStart = true;
+
+                  if (rangeEnd !== null && rangeEnd !== undefined) {
+                    const endIdx = ayahs.findIndex(a =>
+                      (!targetSurahNum || a.surahNumber === targetSurahNum) &&
+                      a.numberInSurah === rangeEnd
+                    );
+
+                    if (endIdx !== -1 && endIdx >= startIdx) {
+                      if (idx === endIdx) isEnd = true;
+                      if (idx >= startIdx && idx <= endIdx) inRange = true;
+                    }
+                  }
+                }
+              }
+
+              const isRangeActive = rangeStart !== null || playbackMode === 'range';
 
               // Check if a new Surah starts at this ayah in Juz view
               const isNewSurahInJuz = viewMode === 'juz' && idx > 0 && ayah.surahNumber !== ayahs[idx - 1].surahNumber;
@@ -587,20 +654,14 @@ export function App() {
                     isInRange={inRange}
                     isRangeStart={isStart}
                     isRangeEnd={isEnd}
+                    isRangeActive={isRangeActive}
                     showTranslation={showTranslation}
                     onPlay={playAyah}
                     onPause={togglePlayPause}
                     onRepeatAyah={repeatSingleAyah}
-                    onSetRangeStart={() => {
-                      if (viewMode === 'juz') setRangeSurahNumber(ayah.surahNumber);
-                      setRangeStart(ayah.numberInSurah);
-                      showToast(`Set ${ayah.surahEnglishName || 'Surah'} Ayah ${ayah.numberInSurah} as Range Start`);
-                    }}
-                    onSetRangeEnd={() => {
-                      if (viewMode === 'juz') setRangeSurahNumber(ayah.surahNumber);
-                      setRangeEnd(ayah.numberInSurah);
-                      showToast(`Set ${ayah.surahEnglishName || 'Surah'} Ayah ${ayah.numberInSurah} as Range End`);
-                    }}
+                    onSetRangeStart={() => handleSetRangeStart(ayah)}
+                    onSetRangeEnd={() => handleSetRangeEnd(ayah)}
+                    onClearRange={handleClearRange}
                   />
                 </React.Fragment>
               );

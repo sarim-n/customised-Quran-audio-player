@@ -52,8 +52,8 @@ export function useQuranAudio({
 
   // Range configuration
   const [rangeSurahNumber, setRangeSurahNumber] = useState(null); // specific surah number in juz mode
-  const [rangeStart, setRangeStart] = useState(1); // 1-based ayah number in surah
-  const [rangeEnd, setRangeEnd] = useState(1);     // 1-based ayah number in surah
+  const [rangeStart, setRangeStart] = useState(null); // 1-based ayah number in surah
+  const [rangeEnd, setRangeEnd] = useState(null);     // 1-based ayah number in surah
   const [rangeRepeatCount, setRangeRepeatCount] = useState(3);
 
   // Quick repetition memory for active surah/juz
@@ -587,6 +587,17 @@ export function useQuranAudio({
     loadAndPlayAyah(startIndex);
   }, [rangeRepeatCount, loadAndPlayAyah]);
 
+  // Clear / Cancel Range Repetition
+  const clearRangeRepetition = useCallback(() => {
+    setPlaybackMode('normal');
+    setRepeatTarget(1);
+    setCurrentCycle(1);
+    setRangeStart(null);
+    setRangeEnd(null);
+    setRangeSurahNumber(null);
+    stopPlayback();
+  }, [stopPlayback]);
+
   // 5. Repeat entire Surah
   const repeatSurah = useCallback((count) => {
     if (!ayahs || ayahs.length === 0) return;
@@ -773,6 +784,7 @@ export function useQuranAudio({
     repeatSurah,
     repeatJuz,
     stopPlayback,
+    clearRangeRepetition,
     nextAyah,
     prevAyah,
     changePlaybackSpeed,

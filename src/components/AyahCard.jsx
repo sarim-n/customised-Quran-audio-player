@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Pause, Repeat, Bookmark, Flag } from 'lucide-react';
+import { Play, Pause, Repeat, Bookmark, Flag, X } from 'lucide-react';
 import { REPEAT_PRESETS } from '../data/quranMeta';
 
 export function AyahCard({
@@ -15,12 +15,14 @@ export function AyahCard({
   isInRange,
   isRangeStart,
   isRangeEnd,
+  isRangeActive,
   showTranslation,
   onPlay,
   onPause,
   onRepeatAyah,
   onSetRangeStart,
-  onSetRangeEnd
+  onSetRangeEnd,
+  onClearRange
 }) {
   const [showRepeatMenu, setShowRepeatMenu] = useState(false);
   const [isCustomActive, setIsCustomActive] = useState(false);
@@ -213,6 +215,26 @@ export function AyahCard({
             <Flag size={13} />
             <span>Set End</span>
           </button>
+
+          {/* Cancel / Clear Range Button '✕' */}
+          {isRangeActive && (
+            <button
+              className="action-btn danger"
+              onClick={onClearRange}
+              title="Cancel range repetition loop (✕)"
+              id={`ayah-clear-range-${ayah.numberInSurah}`}
+              style={{
+                borderColor: 'var(--danger)',
+                color: 'var(--danger)',
+                background: 'var(--danger-light)',
+                fontWeight: 700,
+                padding: '0.25rem 0.55rem'
+              }}
+            >
+              <X size={13} />
+              <span>✕</span>
+            </button>
+          )}
         </div>
       </div>
 
