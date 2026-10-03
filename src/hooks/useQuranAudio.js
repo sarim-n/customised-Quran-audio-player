@@ -134,6 +134,16 @@ export function useQuranAudio({
             currentTime: audio.currentTime || 0,
             duration: audio.duration || 0
           });
+
+          if ('mediaSession' in navigator && audio.duration && Number.isFinite(audio.duration) && audio.duration > 0) {
+            try {
+              navigator.mediaSession.setPositionState({
+                duration: audio.duration,
+                playbackRate: audio.playbackRate || 1,
+                position: Math.min(audio.currentTime || 0, audio.duration)
+              });
+            } catch {}
+          }
         }
       };
       const handleEnded = () => {
@@ -226,10 +236,92 @@ export function useQuranAudio({
   useEffect(() => {
     if (ayahs && ayahs.length > 0) {
       setCurrentAyahIndex(0);
-      setRangeStart(ayahs[0].numberInSurah);
-      setRangeEnd(ayahs[Math.min(ayahs.length - 1, 4)].numberInSurah);
     }
   }, [ayahs]);
+
+  // Screen Wake Lock API: keeps screen alive while recitation is actively playing
+  const wakeLockRef = useRef(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const requestWakeLock = async () => {
+      if ('wakeLock' in navigator && isPlaying && !wakeLockRef.current) {
+        try {
+          const lock = await navigator.wakeLock.request('screen');
+          if (isMounted) {
+            wakeLockRef.current = lock;
+            lock.addEventListener('release', () => {
+              wakeLockRef.current = null;
+            });
+          } else {
+            lock.release();
+          }
+        } catch {}
+      }
+    };
+
+    const releaseWakeLock = async () => {
+      if (wakeLockRef.current) {
+        try {
+          await wakeLockRef.current.release();
+        } catch {}
+        wakeLockRef.current = null;
+      }
+    };
+
+    if (isPlaying) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isPlaying) {
+        requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      releaseWakeLock();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isPlaying]);
+
+  // Media Session API: registers lock-screen player controls & metadata for background audio
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+
+    const list = stateRef.current.ayahs;
+    const currentVerse = list?.[currentAyahIndex];
+    if (!currentVerse) return;
+
+    const surahTitle = currentVerse.surahEnglishName || currentSurah?.englishName || 'Surah';
+    const title = `${surahTitle} - Ayah ${currentVerse.numberInSurah}`;
+    const artist = reciter?.name || 'Quran Reciter';
+    const album = viewMode === 'juz' ? `Juz ${currentJuz}` : (currentSurah?.englishName || 'Quran Memorizer');
+
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title,
+        artist,
+        album,
+        artwork: [
+          { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }
+        ]
+      });
+
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    } catch (err) {
+      console.warn('MediaSession metadata error:', err);
+    }
+  }, [currentAyahIndex, isPlaying, reciter, viewMode, currentSurah, currentJuz]);
+
 
   // Calculate the next Ayah index given current index and repetition configuration
   const computeNextAyahIndex = useCallback((currentIndex) => {
@@ -362,8 +454,18 @@ export function useQuranAudio({
       if (playPromise !== undefined) {
         playPromise.catch(err => {
           if (err.name !== 'AbortError') {
-            console.warn('Play was prevented:', err);
-            setIsPlaying(false);
+            console.warn('Background play swap failed, falling back to primary player:', err);
+            // Fallback for background playback: reuse existing active player so audio doesn't drop
+            activePlayerRef.current = activePlayerRef.current === 1 ? 2 : 1;
+            const fallbackPlayer = getActiveAudio();
+            if (fallbackPlayer) {
+              fallbackPlayer.src = url;
+              fallbackPlayer.playbackRate = rate;
+              fallbackPlayer.currentTime = 0;
+              fallbackPlayer.play().catch(e => {
+                if (e.name !== 'AbortError') setIsPlaying(false);
+              });
+            }
           }
         });
       }
@@ -743,6 +845,45 @@ export function useQuranAudio({
       }
     }
   }, [loadAndPlayAyah]);
+
+  // Set up MediaSession Action Handlers for Mobile Lock Screen & Headphone Controls
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+
+    try {
+      navigator.mediaSession.setActionHandler('play', () => {
+        const active = getActiveAudio();
+        if (active && active.paused) {
+          active.play().catch(console.warn);
+          setIsPlaying(true);
+        }
+      });
+
+      navigator.mediaSession.setActionHandler('pause', () => {
+        const active = getActiveAudio();
+        if (active && !active.paused) {
+          active.pause();
+          setIsPlaying(false);
+        }
+      });
+
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        prevAyah();
+      });
+
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        nextAyah();
+      });
+
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined) {
+          seekAudio(details.seekTime);
+        }
+      });
+    } catch (err) {
+      console.warn('MediaSession handler warning:', err);
+    }
+  }, [prevAyah, nextAyah, seekAudio]);
 
   return {
     // Audio State
