@@ -5,7 +5,24 @@ let deferredInstallPrompt = null;
 export function registerPwa() {
   if (typeof window === 'undefined') return;
 
-  // 1. Register Service Worker in production or supporting browsers
+  // 1. In development, proactively unregister any service worker and clear caches to prevent Vite module interception
+  if (import.meta.env.DEV) {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then((keys) => {
+        keys.forEach((key) => caches.delete(key));
+      });
+    }
+    return;
+  }
+
+  // 2. Register Service Worker in production
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker

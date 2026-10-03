@@ -41,13 +41,45 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// If mistakenly loaded on localhost or dev port, unregister immediately
+const isDevHost = 
+  self.location.hostname === 'localhost' || 
+  self.location.hostname === '127.0.0.1' || 
+  self.location.port === '5173';
+
+if (isDevHost) {
+  self.addEventListener('install', () => {
+    self.skipWaiting();
+  });
+  self.addEventListener('activate', (event) => {
+    event.waitUntil(
+      self.registration.unregister().then(() => {
+        return self.clients.matchAll();
+      }).then((clients) => {
+        clients.forEach((client) => client.navigate(client.url));
+      })
+    );
+  });
+}
+
 // Fetch: smart caching strategies
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests
-  if (request.method !== 'GET') return;
+  // Skip non-GET requests, localhost/dev server, and Vite internal HMR modules
+  if (
+    isDevHost ||
+    request.method !== 'GET' ||
+    url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1' ||
+    url.port === '5173' ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.includes('node_modules') ||
+    url.pathname.includes('vite')
+  ) {
+    return;
+  }
 
   // 1. Audio stream requests (cdn.islamic.network): pass directly through to network to support Range requests
   if (url.hostname.includes('islamic.network') || url.pathname.endsWith('.mp3')) {

@@ -689,6 +689,21 @@ export function useQuranAudio({
     loadAndPlayAyah(startIndex);
   }, [rangeRepeatCount, loadAndPlayAyah]);
 
+  // Stop completely and reset repetition state
+  const stopPlayback = useCallback(() => {
+    [player1Ref.current, player2Ref.current].forEach(audio => {
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    });
+    setIsPlaying(false);
+    setIsBuffering(false);
+    setPlaybackMode('normal');
+    setCurrentCycle(1);
+    setAudioProgress({ currentTime: 0, duration: 0 });
+  }, []);
+
   // Clear / Cancel Range Repetition
   const clearRangeRepetition = useCallback(() => {
     setPlaybackMode('normal');
@@ -721,21 +736,6 @@ export function useQuranAudio({
     setCurrentCycle(1);
     loadAndPlayAyah(0);
   }, [ayahs, juzRepeatCount, loadAndPlayAyah]);
-
-  // 7. Stop completely and reset repetition state
-  const stopPlayback = useCallback(() => {
-    [player1Ref.current, player2Ref.current].forEach(audio => {
-      if (audio) {
-        audio.pause();
-        audio.currentTime = 0;
-      }
-    });
-    setIsPlaying(false);
-    setIsBuffering(false);
-    setPlaybackMode('normal');
-    setCurrentCycle(1);
-    setAudioProgress({ currentTime: 0, duration: 0 });
-  }, []);
 
   // 8. Next Ayah
   const nextAyah = useCallback(() => {
