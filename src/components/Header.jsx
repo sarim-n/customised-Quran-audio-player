@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Layers, User, Sun, Moon, Monitor, Globe, Target, Download } from 'lucide-react';
+import { BookOpen, Layers, User, Sun, Moon, Monitor, Globe, Target, Download, DownloadCloud, CheckCircle2 } from 'lucide-react';
 import { promptPwaInstall, isPwaInstalled } from '../pwa';
+import { isItemDownloaded } from '../services/offlineStorage';
 
 export function Header({
   viewMode,
@@ -15,12 +16,27 @@ export function Header({
   onOpenJuzModal,
   onOpenReciterModal,
   onOpenGoToAyahModal,
+  onOpenOfflineModal,
   autoScroll,
   onToggleAutoScroll,
   onShowToast
 }) {
   const [canInstall, setCanInstall] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [isOfflineReady, setIsOfflineReady] = useState(false);
+
+  useEffect(() => {
+    const checkOffline = () => {
+      const type = viewMode === 'juz' ? 'juz' : 'surah';
+      const id = viewMode === 'juz' ? currentJuz : currentSurah?.number || 1;
+      setIsOfflineReady(isItemDownloaded(type, id, reciter?.id));
+    };
+    checkOffline();
+
+    const handleUpdate = () => checkOffline();
+    window.addEventListener('quran-offline-index-updated', handleUpdate);
+    return () => window.removeEventListener('quran-offline-index-updated', handleUpdate);
+  }, [viewMode, currentSurah?.number, currentJuz, reciter?.id]);
 
   useEffect(() => {
     setIsStandalone(isPwaInstalled());
@@ -124,6 +140,18 @@ export function Header({
             <span style={{ maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {reciter?.name?.split(' ')?.[0] || 'Reciter'}
             </span>
+          </button>
+
+          {/* Offline Downloads Manager Button */}
+          <button
+            className={`action-btn ${isOfflineReady ? 'active' : ''}`}
+            onClick={onOpenOfflineModal}
+            title={isOfflineReady ? 'Current recitation is downloaded for offline playback' : 'Download recitation for offline listening'}
+            id="btn-open-offline-modal"
+            style={isOfflineReady ? { borderColor: 'var(--primary)', color: 'var(--primary)', background: 'var(--primary-light)' } : {}}
+          >
+            {isOfflineReady ? <CheckCircle2 size={16} color="var(--primary)" /> : <DownloadCloud size={16} />}
+            <span>{isOfflineReady ? 'Offline Ready' : 'Download'}</span>
           </button>
 
           {/* Translation Toggle */}

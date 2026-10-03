@@ -1,6 +1,7 @@
 // Quran Memorizer PWA Service Worker
 const CACHE_NAME = 'quran-memorizer-v1';
 const API_CACHE = 'quran-api-v1';
+const AUDIO_CACHE = 'quran-audio-v1';
 
 // Core assets to precache on install
 const PRECACHE_ASSETS = [
@@ -33,7 +34,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME && key !== API_CACHE) {
+          if (key !== CACHE_NAME && key !== API_CACHE && key !== AUDIO_CACHE) {
             return caches.delete(key);
           }
         })
@@ -82,8 +83,59 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 1. Audio stream requests (cdn.islamic.network): pass directly through to network to support Range requests
+  // 1. Audio stream requests (cdn.islamic.network): Serve from AUDIO_CACHE if downloaded (with 206 Partial Content support for mobile Safari/Chrome)
   if (url.hostname.includes('islamic.network') || url.pathname.endsWith('.mp3')) {
+    event.respondWith(
+      caches.open(AUDIO_CACHE).then(async (cache) => {
+        const cached = await cache.match(request.url);
+        if (cached) {
+          const rangeHeader = request.headers.get('range');
+          if (!rangeHeader) {
+            return cached;
+          }
+
+          // Handle Range header (e.g. Range: bytes=0-1 or Range: bytes=1024-)
+          try {
+            const arrayBuffer = await cached.arrayBuffer();
+            const total = arrayBuffer.byteLength;
+            const parts = rangeHeader.replace(/bytes=/, '').split('-');
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : total - 1;
+
+            if (start >= total || end >= total) {
+              return new Response('', {
+                status: 416,
+                statusText: 'Range Not Satisfiable',
+                headers: { 'Content-Range': `bytes */${total}` }
+              });
+            }
+
+            const chunk = arrayBuffer.slice(start, end + 1);
+            return new Response(chunk, {
+              status: 206,
+              statusText: 'Partial Content',
+              headers: {
+                'Content-Range': `bytes ${start}-${end}/${total}`,
+                'Content-Length': chunk.byteLength.toString(),
+                'Content-Type': cached.headers.get('content-type') || 'audio/mpeg',
+                'Accept-Ranges': 'bytes',
+                'Cache-Control': 'public, max-age=31536000'
+              }
+            });
+          } catch {
+            return cached;
+          }
+        }
+
+        // Not in cache: stream from network
+        return fetch(request).catch(() => {
+          return new Response('Audio not available offline. Please download this Surah/Juz first.', {
+            status: 503,
+            statusText: 'Service Unavailable'
+          });
+        });
+      })
+    );
     return;
   }
 

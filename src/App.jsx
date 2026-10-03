@@ -7,10 +7,12 @@ import { RepetitionToolbar } from './components/RepetitionToolbar';
 import { AyahCard } from './components/AyahCard';
 import { PlayerBar } from './components/PlayerBar';
 import { GoToAyahModal } from './components/GoToAyahModal';
+import { OfflineModal } from './components/OfflineModal';
 import { fetchSurah, fetchJuz } from './services/quranApi';
 import { SURAHS, INDOPAK_JUZ_METADATA, MADANI_JUZ_METADATA } from './data/quranMeta';
 import { useQuranAudio } from './hooks/useQuranAudio';
-import { AlertCircle, RefreshCw, Loader2, Target, CheckCircle2 } from 'lucide-react';
+import { isItemDownloaded } from './services/offlineStorage';
+import { AlertCircle, RefreshCw, Loader2, Target, CheckCircle2, DownloadCloud } from 'lucide-react';
 
 // Parse initial navigation from URL hash or localStorage so reloads preserve current Surah/Juz
 function getInitialNavigationState() {
@@ -92,6 +94,8 @@ export function App() {
   const [isJuzModalOpen, setIsJuzModalOpen] = useState(false);
   const [isReciterModalOpen, setIsReciterModalOpen] = useState(false);
   const [isGoToAyahModalOpen, setIsGoToAyahModalOpen] = useState(false);
+  const [isOfflineModalOpen, setIsOfflineModalOpen] = useState(false);
+  const [isCurrentOffline, setIsCurrentOffline] = useState(false);
 
   // Audio Hook
   const {
@@ -135,6 +139,19 @@ export function App() {
     currentSurah: currentSurahMeta,
     currentJuz: currentJuzNumber
   });
+
+  // Sync offline status for current view
+  useEffect(() => {
+    const updateOfflineStatus = () => {
+      const type = viewMode === 'juz' ? 'juz' : 'surah';
+      const id = viewMode === 'juz' ? currentJuzNumber : currentSurahNumber;
+      setIsCurrentOffline(isItemDownloaded(type, id, reciter?.id));
+    };
+    updateOfflineStatus();
+
+    window.addEventListener('quran-offline-index-updated', updateOfflineStatus);
+    return () => window.removeEventListener('quran-offline-index-updated', updateOfflineStatus);
+  }, [viewMode, currentSurahNumber, currentJuzNumber, reciter?.id]);
 
   // Scroll to top whenever Surah, Juz, or View Mode changes
   useEffect(() => {
@@ -463,6 +480,7 @@ export function App() {
         onOpenJuzModal={() => setIsJuzModalOpen(true)}
         onOpenReciterModal={() => setIsReciterModalOpen(true)}
         onOpenGoToAyahModal={() => setIsGoToAyahModalOpen(true)}
+        onOpenOfflineModal={() => setIsOfflineModalOpen(true)}
         autoScroll={autoScroll}
         onToggleAutoScroll={handleToggleAutoScroll}
         onShowToast={showToast}
@@ -508,6 +526,24 @@ export function App() {
                 <span className="meta-pill">{currentSurahMeta?.revelationType}</span>
                 <span className="meta-pill">{ayahs.length} Ayahs</span>
                 <span className="meta-pill">Reciter: {reciter?.name}</span>
+                <button
+                  className="meta-pill"
+                  onClick={() => setIsOfflineModalOpen(true)}
+                  title={isCurrentOffline ? "Downloaded for offline playback" : "Click to download for offline"}
+                  style={{
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    background: isCurrentOffline ? 'var(--primary-light)' : 'var(--bg-surface)',
+                    color: isCurrentOffline ? 'var(--primary)' : 'var(--text-muted)',
+                    borderColor: isCurrentOffline ? 'var(--primary)' : 'var(--border-subtle)',
+                    fontWeight: 600
+                  }}
+                >
+                  {isCurrentOffline ? <CheckCircle2 size={13} color="var(--primary)" /> : <DownloadCloud size={13} />}
+                  <span>{isCurrentOffline ? 'Ready Offline' : 'Download for Offline'}</span>
+                </button>
               </div>
             </>
           ) : (
@@ -522,6 +558,24 @@ export function App() {
                   {juzConvention === 'indopak' ? 'Indo-Pak Subcontinent Standard' : 'Madani Standard'}
                 </span>
                 <span className="meta-pill">Reciter: {reciter?.name}</span>
+                <button
+                  className="meta-pill"
+                  onClick={() => setIsOfflineModalOpen(true)}
+                  title={isCurrentOffline ? "Downloaded for offline playback" : "Click to download for offline"}
+                  style={{
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    background: isCurrentOffline ? 'var(--primary-light)' : 'var(--bg-surface)',
+                    color: isCurrentOffline ? 'var(--primary)' : 'var(--text-muted)',
+                    borderColor: isCurrentOffline ? 'var(--primary)' : 'var(--border-subtle)',
+                    fontWeight: 600
+                  }}
+                >
+                  {isCurrentOffline ? <CheckCircle2 size={13} color="var(--primary)" /> : <DownloadCloud size={13} />}
+                  <span>{isCurrentOffline ? 'Ready Offline' : 'Download for Offline'}</span>
+                </button>
               </div>
             </>
           )}
@@ -735,6 +789,18 @@ export function App() {
         currentSurah={currentSurahMeta}
         currentJuz={currentJuzNumber}
         onJumpToTarget={handleJumpToTarget}
+      />
+
+      {/* Offline Recitation Downloads Manager Modal */}
+      <OfflineModal
+        isOpen={isOfflineModalOpen}
+        onClose={() => setIsOfflineModalOpen(false)}
+        viewMode={viewMode}
+        currentSurah={currentSurahMeta}
+        currentJuz={currentJuzNumber}
+        juzConvention={juzConvention}
+        reciter={reciter}
+        onShowToast={showToast}
       />
 
       {/* Floating Snap to Playing Ayah button when user has scrolled away */}
