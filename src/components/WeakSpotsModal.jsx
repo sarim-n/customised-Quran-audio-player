@@ -442,11 +442,7 @@ export function WeakSpotsModal({
                             textAlign: 'right',
                             direction: 'rtl',
                             padding: '0.35rem 0',
-                            color: 'var(--text-main)',
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            justifyContent: 'flex-start',
-                            gap: '0.35rem'
+                            color: 'var(--text-main)'
                           }}
                         >
                           {words.map((word, wIdx) => {
@@ -458,7 +454,7 @@ export function WeakSpotsModal({
                                 title="Click to toggle mistake highlight on this word"
                                 style={{
                                   cursor: 'pointer',
-                                  padding: '0 0.25rem',
+                                  padding: '0 0.15rem',
                                   borderRadius: 'var(--radius-sm)',
                                   background: isWordHighlighted ? 'rgba(239, 68, 68, 0.22)' : 'transparent',
                                   color: isWordHighlighted ? '#ef4444' : 'inherit',
@@ -467,7 +463,7 @@ export function WeakSpotsModal({
                                   transition: 'all 0.15s ease'
                                 }}
                               >
-                                {word}
+                                {word}{' '}
                               </span>
                             );
                           })}

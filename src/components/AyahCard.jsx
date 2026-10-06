@@ -474,30 +474,28 @@ export function AyahCard({
       {/* Arabic Uthmani Text (With Interactive Word Highlighting when Weak Spot) */}
       <div className="arabic-quran-text ayah-arabic">
         {isWeakSpot && ayah.text ? (
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '0.35rem' }}>
-            {ayah.text.split(' ').map((word, wIdx) => {
-              const isWordHighlighted = Array.isArray(weakSpotItem?.highlightedWords) && weakSpotItem.highlightedWords.includes(wIdx);
-              return (
-                <span
-                  key={wIdx}
-                  onClick={() => onToggleWordHighlight && onToggleWordHighlight(ayah, wIdx)}
-                  title="Click to toggle mistake highlight on this word"
-                  style={{
-                    cursor: 'pointer',
-                    padding: '0 0.25rem',
-                    borderRadius: 'var(--radius-sm)',
-                    background: isWordHighlighted ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
-                    color: isWordHighlighted ? '#ef4444' : 'inherit',
-                    borderBottom: isWordHighlighted ? '2px solid #ef4444' : '2px solid transparent',
-                    fontWeight: isWordHighlighted ? 700 : 'normal',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  {word}
-                </span>
-              );
-            })}
-          </div>
+          ayah.text.split(' ').map((word, wIdx) => {
+            const isWordHighlighted = Array.isArray(weakSpotItem?.highlightedWords) && weakSpotItem.highlightedWords.includes(wIdx);
+            return (
+              <span
+                key={wIdx}
+                onClick={() => onToggleWordHighlight && onToggleWordHighlight(ayah, wIdx)}
+                title="Click to toggle mistake highlight on this word"
+                style={{
+                  cursor: 'pointer',
+                  padding: '0 0.15rem',
+                  borderRadius: 'var(--radius-sm)',
+                  background: isWordHighlighted ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
+                  color: isWordHighlighted ? '#ef4444' : 'inherit',
+                  borderBottom: isWordHighlighted ? '2px solid #ef4444' : '2px solid transparent',
+                  fontWeight: isWordHighlighted ? 700 : 'normal',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {word}{' '}
+              </span>
+            );
+          })
         ) : (
           ayah.text
         )}
