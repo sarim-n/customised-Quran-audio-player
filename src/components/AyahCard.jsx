@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Repeat, Bookmark, Flag, X, Layers } from 'lucide-react';
+import { Play, Pause, Repeat, Bookmark, Flag, X, Layers, Flame } from 'lucide-react';
 import { REPEAT_PRESETS } from '../data/quranMeta';
 
 export function AyahCard({
@@ -23,7 +23,9 @@ export function AyahCard({
   onRepeatRuku,
   onSetRangeStart,
   onSetRangeEnd,
-  onClearRange
+  onClearRange,
+  onMarkMistake,
+  mistakeCount = 0
 }) {
   const [showRepeatMenu, setShowRepeatMenu] = useState(false);
   const [isCustomActive, setIsCustomActive] = useState(false);
@@ -306,6 +308,29 @@ export function AyahCard({
             >
               <Layers size={13} />
               <span>Repeat Ruku</span>
+            </button>
+          )}
+
+          {/* Mark Mistake Button */}
+          {onMarkMistake && (
+            <button
+              className={`action-btn ${mistakeCount > 0 ? 'warning' : ''}`}
+              onClick={() => onMarkMistake(ayah)}
+              title={mistakeCount > 0 ? `Marked mistake ${mistakeCount} times. Click to increment.` : `Mark a mistake on Ayah ${ayah.numberInSurah} with one click`}
+              id={`ayah-mark-mistake-btn-${ayah.numberInSurah}`}
+              style={
+                mistakeCount > 0
+                  ? {
+                      borderColor: 'rgba(239, 68, 68, 0.4)',
+                      color: '#ef4444',
+                      background: 'rgba(239, 68, 68, 0.08)',
+                      fontWeight: 600
+                    }
+                  : {}
+              }
+            >
+              <Flame size={13} color={mistakeCount > 0 ? '#ef4444' : 'currentColor'} />
+              <span>Mark Mistake {mistakeCount > 0 ? `(${mistakeCount})` : ''}</span>
             </button>
           )}
 

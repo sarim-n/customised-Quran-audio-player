@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Pause, Square, SkipBack, SkipForward, Volume2, User, Loader2, Repeat, RotateCcw, Layers } from 'lucide-react';
+import { Play, Pause, Square, SkipBack, SkipForward, Volume2, User, Loader2, Repeat, RotateCcw, Layers, Flame } from 'lucide-react';
 import { PLAYBACK_SPEEDS } from '../data/quranMeta';
 
 export function PlayerBar({
@@ -28,7 +28,9 @@ export function PlayerBar({
   onChangeSpeed,
   onSeek,
   onSeekOverall,
-  onOpenReciterModal
+  onOpenReciterModal,
+  onMarkMistake,
+  mistakeCount = 0
 }) {
   const formatTime = (seconds) => {
     if (!seconds || isNaN(seconds)) return '0:00';
@@ -186,13 +188,38 @@ export function PlayerBar({
             </div>
 
             <div className="player-details">
-              <div className="player-surah-title">
+              <div className="player-surah-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                 {currentAyah ? (
                   <>
                     <span>{currentAyah.surahEnglishName || currentSurah?.englishName || `Surah ${currentAyah.surahNumber}`}</span>
                     <span className="player-ayah-num" style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
                       {' '}• Ayah {currentAyah.numberInSurah} {viewMode === 'juz' ? `(Juz ${currentJuz})` : ''}
                     </span>
+
+                    {onMarkMistake && (
+                      <button
+                        onClick={() => onMarkMistake(currentAyah)}
+                        title={mistakeCount > 0 ? `Marked mistake ${mistakeCount} times. Tap to increment.` : `Mark mistake on Ayah ${currentAyah.numberInSurah}`}
+                        id="player-bar-mark-mistake-btn"
+                        style={{
+                          background: mistakeCount > 0 ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-subtle)',
+                          color: mistakeCount > 0 ? '#ef4444' : 'var(--text-subtle)',
+                          border: mistakeCount > 0 ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-full)',
+                          padding: '0.15rem 0.45rem',
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.2rem',
+                          marginLeft: '0.25rem'
+                        }}
+                      >
+                        <Flame size={12} color={mistakeCount > 0 ? '#ef4444' : 'currentColor'} />
+                        <span>Mistake {mistakeCount > 0 ? `(${mistakeCount})` : ''}</span>
+                      </button>
+                    )}
                   </>
                 ) : (
                   <span>Ready to Play</span>

@@ -8,11 +8,13 @@ import { AyahCard } from './components/AyahCard';
 import { PlayerBar } from './components/PlayerBar';
 import { GoToAyahModal } from './components/GoToAyahModal';
 import { OfflineModal } from './components/OfflineModal';
+import { WeakSpotsModal } from './components/WeakSpotsModal';
 import { fetchSurah, fetchJuz } from './services/quranApi';
 import { SURAHS, INDOPAK_JUZ_METADATA, MADANI_JUZ_METADATA } from './data/quranMeta';
 import { useQuranAudio } from './hooks/useQuranAudio';
 import { isItemDownloaded } from './services/offlineStorage';
-import { AlertCircle, RefreshCw, Loader2, Target, CheckCircle2, DownloadCloud } from 'lucide-react';
+import { getWeakSpotsCount, getMistakeCount, markMistake } from './services/weakSpotsStorage';
+import { AlertCircle, RefreshCw, Loader2, Target, CheckCircle2, DownloadCloud, Flame } from 'lucide-react';
 
 // Parse initial navigation from URL hash or localStorage so reloads preserve current Surah/Juz
 function getInitialNavigationState() {
@@ -95,7 +97,13 @@ export function App() {
   const [isReciterModalOpen, setIsReciterModalOpen] = useState(false);
   const [isGoToAyahModalOpen, setIsGoToAyahModalOpen] = useState(false);
   const [isOfflineModalOpen, setIsOfflineModalOpen] = useState(false);
+  const [isWeakSpotsModalOpen, setIsWeakSpotsModalOpen] = useState(false);
   const [isCurrentOffline, setIsCurrentOffline] = useState(false);
+
+  // Weak Spots state & pending triplet revision ref
+  const [weakSpotsCount, setWeakSpotsCount] = useState(() => getWeakSpotsCount());
+  const [weakSpotsVersion, setWeakSpotsVersion] = useState(0);
+  const pendingTripletRef = useRef(null);
 
   // Audio Hook
   const {
@@ -154,6 +162,16 @@ export function App() {
     return () => window.removeEventListener('quran-offline-index-updated', updateOfflineStatus);
   }, [viewMode, currentSurahNumber, currentJuzNumber, reciter?.id]);
 
+  // Sync Weak Spots count and version
+  useEffect(() => {
+    const updateWeakSpotsState = () => {
+      setWeakSpotsCount(getWeakSpotsCount());
+      setWeakSpotsVersion(v => v + 1);
+    };
+    window.addEventListener('quran-weak-spots-updated', updateWeakSpotsState);
+    return () => window.removeEventListener('quran-weak-spots-updated', updateWeakSpotsState);
+  }, []);
+
   // Scroll to top whenever Surah, Juz, or View Mode changes
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -193,6 +211,77 @@ export function App() {
       setToastMessage(prev => prev === msg ? null : prev);
     }, 3000);
   }, []);
+
+  // Mark mistake on an Ayah with one click
+  const handleMarkMistake = useCallback((ayahToMark) => {
+    if (!ayahToMark) return;
+    const updated = markMistake(ayahToMark, currentSurahMeta);
+    setWeakSpotsVersion(v => v + 1);
+    setWeakSpotsCount(getWeakSpotsCount());
+    if (updated) {
+      showToast(`Marked mistake for Surah ${updated.surahEnglishName} Ayah ${updated.numberInSurah} (Total: ${updated.mistakeCount})`);
+    }
+  }, [currentSurahMeta, showToast]);
+
+  // Start targeted triplet revision session (Prev -> Weak -> Next)
+  const handleReviseTriplet = useCallback((spot) => {
+    if (!spot) return;
+    const surahMeta = SURAHS.find(s => s.number === spot.surahNumber);
+    const totalAyahs = surahMeta ? surahMeta.numberOfAyahs : 286;
+    const startNum = Math.max(1, spot.numberInSurah - 1);
+    const endNum = Math.min(totalAyahs, spot.numberInSurah + 1);
+
+    if (viewMode === 'surah' && currentSurahNumber === spot.surahNumber && ayahs.length > 0) {
+      startRangeRepetition(startNum, endNum, 'infinity', spot.surahNumber);
+      showToast(`Revising Triplet: Surah ${spot.surahEnglishName} Ayahs ${startNum}–${endNum}`);
+      setTimeout(() => {
+        const el = document.getElementById(`ayah-${spot.numberInSurah}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 250);
+    } else {
+      pendingTripletRef.current = {
+        surahNumber: spot.surahNumber,
+        startNum,
+        endNum,
+        targetAyahNum: spot.numberInSurah,
+        surahName: spot.surahEnglishName
+      };
+      setViewMode('surah');
+      setCurrentSurahNumber(spot.surahNumber);
+    }
+  }, [viewMode, currentSurahNumber, ayahs, startRangeRepetition, showToast]);
+
+  // Jump to weak spot in main view
+  const handleJumpToWeakSpot = useCallback((spot) => {
+    if (!spot) return;
+    if (viewMode === 'surah' && currentSurahNumber === spot.surahNumber) {
+      setHighlightedAyahNumber(spot.numberInSurah);
+      const el = document.getElementById(`ayah-${spot.numberInSurah}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      setHighlightedAyahNumber(spot.numberInSurah);
+      setViewMode('surah');
+      setCurrentSurahNumber(spot.surahNumber);
+    }
+  }, [viewMode, currentSurahNumber]);
+
+  // Execute pending triplet revision when content finishes loading
+  useEffect(() => {
+    if (!isLoading && ayahs.length > 0 && pendingTripletRef.current) {
+      const { surahNumber, startNum, endNum, targetAyahNum, surahName } = pendingTripletRef.current;
+      if (viewMode === 'surah' && currentSurahNumber === surahNumber) {
+        pendingTripletRef.current = null;
+        setTimeout(() => {
+          startRangeRepetition(startNum, endNum, 'infinity', surahNumber);
+          showToast(`Revising Triplet: Surah ${surahName} Ayahs ${startNum}–${endNum}`);
+          setTimeout(() => {
+            const el = document.getElementById(`ayah-${targetAyahNum}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 300);
+        }, 150);
+      }
+    }
+  }, [isLoading, ayahs, viewMode, currentSurahNumber, startRangeRepetition, showToast]);
 
   // Load Content (Surah or Juz)
   const loadContent = useCallback(async () => {
@@ -482,6 +571,8 @@ export function App() {
         onOpenReciterModal={() => setIsReciterModalOpen(true)}
         onOpenGoToAyahModal={() => setIsGoToAyahModalOpen(true)}
         onOpenOfflineModal={() => setIsOfflineModalOpen(true)}
+        onOpenWeakSpotsModal={() => setIsWeakSpotsModalOpen(true)}
+        weakSpotsCount={weakSpotsCount}
         autoScroll={autoScroll}
         onToggleAutoScroll={handleToggleAutoScroll}
         onShowToast={showToast}
@@ -616,6 +707,8 @@ export function App() {
             onRepeatRuku={repeatRuku}
             surahRepeatCount={surahRepeatCount}
             juzRepeatCount={juzRepeatCount}
+            onOpenWeakSpotsModal={() => setIsWeakSpotsModalOpen(true)}
+            weakSpotsCount={weakSpotsCount}
           />
         )}
 
@@ -719,6 +812,8 @@ export function App() {
                     onSetRangeStart={() => handleSetRangeStart(ayah)}
                     onSetRangeEnd={() => handleSetRangeEnd(ayah)}
                     onClearRange={handleClearRange}
+                    onMarkMistake={handleMarkMistake}
+                    mistakeCount={getMistakeCount(ayah.surahNumber, ayah.numberInSurah)}
                   />
                 </React.Fragment>
               );
@@ -755,6 +850,8 @@ export function App() {
         onSeek={seekAudio}
         onSeekOverall={seekToAyah}
         onOpenReciterModal={() => setIsReciterModalOpen(true)}
+        onMarkMistake={handleMarkMistake}
+        mistakeCount={currentAyah ? getMistakeCount(currentAyah.surahNumber, currentAyah.numberInSurah) : 0}
       />
 
       {/* Surah Selector Modal */}
@@ -803,6 +900,15 @@ export function App() {
         currentJuz={currentJuzNumber}
         juzConvention={juzConvention}
         reciter={reciter}
+        onShowToast={showToast}
+      />
+
+      {/* Weak Spots & Mistake Tracking Revision Modal */}
+      <WeakSpotsModal
+        isOpen={isWeakSpotsModalOpen}
+        onClose={() => setIsWeakSpotsModalOpen(false)}
+        onReviseTriplet={handleReviseTriplet}
+        onJumpToAyah={handleJumpToWeakSpot}
         onShowToast={showToast}
       />
 

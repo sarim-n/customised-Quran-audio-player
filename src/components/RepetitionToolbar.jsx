@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Repeat, Play, RotateCcw, Square, ArrowRight, Search, BookOpen, Layers } from 'lucide-react';
+import { Repeat, Play, RotateCcw, Square, ArrowRight, Search, BookOpen, Layers, Flame } from 'lucide-react';
 import { REPEAT_PRESETS, SURAHS } from '../data/quranMeta';
 
 export function RepetitionToolbar({
@@ -26,7 +26,9 @@ export function RepetitionToolbar({
   onRepeatJuz,
   onRepeatRuku,
   surahRepeatCount,
-  juzRepeatCount
+  juzRepeatCount,
+  onOpenWeakSpotsModal,
+  weakSpotsCount = 0
 }) {
   const [activeTab, setActiveTab] = useState('range'); // 'range' | 'ruku' | 'surah' | 'juz'
   const [selectedRangeRepeat, setSelectedRangeRepeat] = useState(rangeRepeatCount || 3);
@@ -288,6 +290,21 @@ export function RepetitionToolbar({
           >
             <RotateCcw size={16} />
             <span>Juz Repetition</span>
+          </button>
+        )}
+
+        {onOpenWeakSpotsModal && (
+          <button
+            className="toolbar-tab"
+            onClick={onOpenWeakSpotsModal}
+            id="tab-weak-spots-modal"
+            style={{
+              color: weakSpotsCount > 0 ? '#ef4444' : undefined,
+              borderColor: weakSpotsCount > 0 ? 'rgba(239, 68, 68, 0.4)' : undefined
+            }}
+          >
+            <Flame size={16} color={weakSpotsCount > 0 ? '#ef4444' : 'currentColor'} />
+            <span>Weak Spots {weakSpotsCount > 0 ? `(${weakSpotsCount})` : ''}</span>
           </button>
         )}
       </div>

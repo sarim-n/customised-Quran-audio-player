@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Layers, User, Sun, Moon, Monitor, Globe, Target, Download, DownloadCloud, CheckCircle2 } from 'lucide-react';
+import { BookOpen, Layers, User, Sun, Moon, Monitor, Globe, Target, Download, DownloadCloud, CheckCircle2, Flame } from 'lucide-react';
 import { promptPwaInstall, isPwaInstalled } from '../pwa';
 import { isItemDownloaded } from '../services/offlineStorage';
 
@@ -17,6 +17,8 @@ export function Header({
   onOpenReciterModal,
   onOpenGoToAyahModal,
   onOpenOfflineModal,
+  onOpenWeakSpotsModal,
+  weakSpotsCount = 0,
   autoScroll,
   onToggleAutoScroll,
   onShowToast
@@ -127,6 +129,26 @@ export function Header({
           >
             <Target size={16} />
             <span>Go to Ayah</span>
+          </button>
+
+          {/* Weak Spots & Revision Tracker Modal Button */}
+          <button
+            className={`action-btn ${weakSpotsCount > 0 ? 'warning' : ''}`}
+            onClick={onOpenWeakSpotsModal}
+            title={weakSpotsCount > 0 ? `${weakSpotsCount} weak spots tracked. Open to revise!` : 'Open Weak Spots & Mistake Tracker'}
+            id="btn-open-weak-spots-modal"
+            style={
+              weakSpotsCount > 0
+                ? {
+                    borderColor: 'rgba(239, 68, 68, 0.5)',
+                    color: '#ef4444',
+                    background: 'rgba(239, 68, 68, 0.08)'
+                  }
+                : {}
+            }
+          >
+            <Flame size={16} color={weakSpotsCount > 0 ? '#ef4444' : 'currentColor'} />
+            <span>Weak Spots {weakSpotsCount > 0 ? `(${weakSpotsCount})` : ''}</span>
           </button>
 
           {/* Reciter Selector Button */}
