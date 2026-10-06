@@ -1,8 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Play, Pause, Flame, BookOpen, Search, RotateCcw, Volume2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Flame, Volume2 } from 'lucide-react';
 import { fetchMushafPage } from '../services/quranApi';
 import { getWeakSpotsMap } from '../services/weakSpotsStorage';
 import { SURAHS } from '../data/quranMeta';
+
+// Convert Western digits (123) to Eastern Arabic numerals (١٢٣)
+function toArabicNumerals(num) {
+  if (num === null || num === undefined) return '';
+  const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  return num.toString().replace(/\d/g, d => arabicDigits[d]);
+}
 
 export function MushafView({
   pageNumber = 1,
@@ -20,7 +27,6 @@ export function MushafView({
   const [weakSpotsMap, setWeakSpotsMap] = useState({});
   const [inputPage, setInputPage] = useState(pageNumber.toString());
 
-  // Listen for weak spot storage updates
   const refreshWeakSpots = () => {
     setWeakSpotsMap(getWeakSpotsMap());
   };
@@ -72,13 +78,11 @@ export function MushafView({
     }
   };
 
-  // Helper to check if a specific verse key has a weak spot
   const getWeakSpotForVerse = (surahNumber, numberInSurah) => {
     const id = `${surahNumber}:${numberInSurah}`;
     return weakSpotsMap[id] || null;
   };
 
-  // Helper to calculate total mistakes on a line
   const getLineMistakesInfo = (words = []) => {
     let hasMemoryGap = false;
     let hasWordSlip = false;
@@ -105,8 +109,8 @@ export function MushafView({
   };
 
   return (
-    <div className="mushaf-view-container" style={{ maxWidth: '820px', margin: '0 auto', padding: '0.5rem 0.5rem 2rem 0.5rem' }}>
-      {/* Top Pagination & Navigation Toolbar */}
+    <div className="mushaf-view-container" style={{ maxWidth: '840px', margin: '0 auto', padding: '0.5rem 0.5rem 2rem 0.5rem' }}>
+      {/* Top Pagination & Navigation Control Bar */}
       <div
         className="mushaf-toolbar"
         style={{
@@ -143,7 +147,7 @@ export function MushafView({
               value={inputPage}
               onChange={e => setInputPage(e.target.value)}
               style={{
-                width: '54px',
+                width: '56px',
                 textAlign: 'center',
                 padding: '0.2rem 0.35rem',
                 borderRadius: 'var(--radius-sm)',
@@ -193,11 +197,11 @@ export function MushafView({
         </div>
       </div>
 
-      {/* Main 16-Line Indo-Pak Mushaf Frame */}
+      {/* Loading & Error States */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '4rem 1rem', color: 'var(--text-muted)' }}>
           <div className="spinner" style={{ margin: '0 auto 1rem auto' }}></div>
-          <div>Loading 16-Line Indo-Pak Mushaf Page {pageNumber}...</div>
+          <div>Loading Taj Company 16-Line Mushaf Page {pageNumber}...</div>
         </div>
       ) : error ? (
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--danger)' }}>
@@ -207,123 +211,119 @@ export function MushafView({
           </button>
         </div>
       ) : (
+        /* Authentic Taj Company 16-Line Double Border Frame */
         <div
-          className="mushaf-page-card"
+          className="taj-mushaf-frame"
           style={{
-            background: 'var(--bg-surface)',
-            border: '2px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-xl)',
-            boxShadow: 'var(--shadow-xl)',
-            padding: '1.25rem 1rem',
-            position: 'relative',
-            direction: 'rtl'
+            background: '#ffffff',
+            color: '#000000',
+            border: '4px solid #000000',
+            outline: '1px solid #000000',
+            outlineOffset: '-6px',
+            borderRadius: '4px',
+            padding: '10px 8px',
+            boxShadow: '0 10px 32px rgba(0, 0, 0, 0.15)',
+            direction: 'rtl',
+            position: 'relative'
           }}
-          id={`mushaf-page-card-${pageNumber}`}
+          id={`taj-mushaf-frame-page-${pageNumber}`}
         >
-          {/* Authentic Mushaf Page Header Banner */}
+          {/* Top 3-Column Header Row (Taj Company Print Style) */}
           <div
+            className="taj-header-row"
             style={{
-              display: 'flex',
+              display: 'grid',
+              gridTemplateColumns: '1fr 80px 1fr',
               alignItems: 'center',
-              justify: 'space-between',
-              borderBottom: '2px double var(--border-subtle)',
-              paddingBottom: '0.6rem',
-              marginBottom: '0.85rem',
-              direction: 'ltr',
-              fontSize: '0.82rem',
+              borderTop: '2px solid #000000',
+              borderBottom: '2px solid #000000',
+              marginBottom: '6px',
+              padding: '3px 0',
               fontWeight: 700,
-              color: 'var(--primary-dark)'
+              fontSize: '1.15rem',
+              color: '#000000'
             }}
           >
-            <div>
-              {pageData.primarySurah ? `Surah ${pageData.primarySurah.number}. ${pageData.primarySurah.englishName} (${pageData.primarySurah.name})` : ''}
+            {/* Right Cell: Surah Name */}
+            <div style={{ textAlign: 'right', paddingRight: '8px', borderLeft: '1px solid #000000' }}>
+              {pageData.primarySurah ? pageData.primarySurah.name : ''}
             </div>
-            <div
-              style={{
-                background: 'var(--primary-light)',
-                color: 'var(--primary-dark)',
-                padding: '0.15rem 0.6rem',
-                borderRadius: 'var(--radius-full)',
-                fontSize: '0.78rem'
-              }}
-            >
-              16-Line Mushaf • Page {pageNumber}
+
+            {/* Center Cell: Page Number in Eastern Arabic Numerals */}
+            <div style={{ textAlign: 'center', fontSize: '1.25rem', fontWeight: 800 }}>
+              {toArabicNumerals(pageNumber)}
             </div>
-            <div>
-              Juz {pageData.primaryJuz}
+
+            {/* Left Cell: Juz Name */}
+            <div style={{ textAlign: 'left', paddingLeft: '8px', borderRight: '1px solid #000000' }}>
+              {pageData.primaryJuz ? `الجزء ${toArabicNumerals(pageData.primaryJuz)}` : ''}
             </div>
           </div>
 
-          {/* 16 Lines Renderer */}
-          <div className="mushaf-16-lines-grid" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            {pageData.lines.map((lineObj) => {
+          {/* 16 Horizontal Boxed Grid Rows */}
+          <div
+            className="taj-16-lines-grid"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              borderTop: '1px solid #000000'
+            }}
+          >
+            {pageData.lines.map((lineObj, idx) => {
               const lineMistakeInfo = getLineMistakesInfo(lineObj.words);
               const isLineActivePlaying = currentAyah && lineObj.words.some(w => w.surahNumber === currentAyah.surahNumber && w.numberInSurah === currentAyah.numberInSurah);
+              const isLastLine = idx === pageData.lines.length - 1;
 
               return (
                 <div
                   key={lineObj.lineNumber}
-                  className={`mushaf-line-row ${lineMistakeInfo.hasMistake ? 'line-has-mistake' : ''} ${isLineActivePlaying ? 'line-playing' : ''}`}
+                  className={`taj-line-cell ${lineMistakeInfo.hasMistake ? 'line-has-mistake' : ''} ${isLineActivePlaying ? 'line-playing' : ''}`}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     justify: 'space-between',
                     minHeight: '44px',
-                    padding: '0.3rem 0.5rem',
-                    borderRadius: 'var(--radius-md)',
+                    padding: '0.15rem 0.5rem',
+                    borderBottom: isLastLine ? '2px solid #000000' : '1px solid #000000',
                     background: lineMistakeInfo.hasMistake
-                      ? 'rgba(239, 68, 68, 0.12)'
+                      ? 'rgba(239, 68, 68, 0.22)'
                       : isLineActivePlaying
-                      ? 'rgba(16, 185, 129, 0.14)'
+                      ? 'rgba(16, 185, 129, 0.18)'
                       : 'transparent',
                     borderLeft: lineMistakeInfo.hasMistake
-                      ? '4px solid #ef4444'
+                      ? '5px solid #ef4444'
                       : isLineActivePlaying
-                      ? '4px solid var(--primary)'
-                      : '4px solid transparent',
+                      ? '5px solid #10b981'
+                      : 'none',
                     borderRight: lineMistakeInfo.hasMistake
-                      ? '4px solid #ef4444'
+                      ? '5px solid #ef4444'
                       : isLineActivePlaying
-                      ? '4px solid var(--primary)'
-                      : '4px solid transparent',
-                    transition: 'all 0.2s ease',
+                      ? '5px solid #10b981'
+                      : 'none',
+                    transition: 'background 0.2s ease',
                     position: 'relative'
                   }}
-                  id={`mushaf-line-${pageNumber}-${lineObj.lineNumber}`}
+                  id={`taj-line-${pageNumber}-${lineObj.lineNumber}`}
                 >
-                  {/* Line Number Badge (Right margin LTR view) */}
-                  <div
-                    style={{
-                      fontSize: '0.68rem',
-                      fontWeight: 700,
-                      color: lineMistakeInfo.hasMistake ? '#ef4444' : 'var(--text-subtle)',
-                      direction: 'ltr',
-                      minWidth: '24px',
-                      userSelect: 'none'
-                    }}
-                  >
-                    L{lineObj.lineNumber}
-                  </div>
-
-                  {/* Line Text Render (Right to Left Indo-Pak Arabic) */}
+                  {/* Line Calligraphy Words */}
                   <div
                     className="arabic-quran-text"
                     style={{
-                      flex: 1,
+                      width: '100%',
                       textAlign: 'justify',
                       textJustify: 'inter-word',
+                      textAlignLast: 'justify',
                       direction: 'rtl',
-                      fontSize: '1.42rem',
-                      lineHeight: 1.85,
+                      fontSize: '1.45rem',
+                      lineHeight: 1.8,
                       letterSpacing: '0px',
-                      color: 'var(--text-main)',
-                      padding: '0 0.5rem'
+                      color: '#000000',
+                      fontWeight: 600
                     }}
                   >
                     {lineObj.words.map((word, wIdx) => {
                       const ayahItem = getWeakSpotForVerse(word.surahNumber, word.numberInSurah);
                       const isWordHighlighted = ayahItem && Array.isArray(ayahItem.highlightedWords) && ayahItem.highlightedWords.includes(wIdx);
-                      const isAyahWeak = Boolean(ayahItem);
 
                       return (
                         <span
@@ -341,15 +341,12 @@ export function MushafView({
                             cursor: 'pointer',
                             display: 'inline-block',
                             padding: '0 0.1rem',
-                            borderRadius: 'var(--radius-sm)',
+                            borderRadius: '2px',
                             background: isWordHighlighted
-                              ? 'rgba(239, 68, 68, 0.35)'
-                              : isAyahWeak
-                              ? 'rgba(239, 68, 68, 0.18)'
+                              ? 'rgba(239, 68, 68, 0.45)'
                               : 'transparent',
-                            color: isWordHighlighted ? '#ef4444' : 'inherit',
-                            fontWeight: isWordHighlighted ? 700 : 'normal',
-                            transition: 'all 0.15s ease'
+                            color: isWordHighlighted ? '#dc2626' : '#000000',
+                            fontWeight: isWordHighlighted ? 800 : 'normal'
                           }}
                         >
                           {word.textIndopak}{' '}
@@ -358,26 +355,30 @@ export function MushafView({
                     })}
                   </div>
 
-                  {/* Line Mistake Indicator Tag */}
+                  {/* Line Mistake Floating Tag */}
                   {lineMistakeInfo.hasMistake && (
                     <div
                       style={{
-                        fontSize: '0.68rem',
-                        fontWeight: 700,
-                        color: '#ef4444',
-                        background: 'rgba(239, 68, 68, 0.18)',
-                        padding: '0.1rem 0.4rem',
-                        borderRadius: 'var(--radius-full)',
+                        position: 'absolute',
+                        left: '6px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '0.65rem',
+                        fontWeight: 800,
+                        color: '#ffffff',
+                        background: '#ef4444',
+                        padding: '0.1rem 0.45rem',
+                        borderRadius: '10px',
                         direction: 'ltr',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.2rem',
-                        whiteSpace: 'nowrap'
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                       }}
-                      title="This Mushaf line contains an Ayah marked with a mistake/weak spot"
+                      title="Weak spot on this line"
                     >
-                      <Flame size={10} color="#ef4444" />
-                      <span>Line Mistake</span>
+                      <Flame size={10} color="#fff" />
+                      <span>Line {lineObj.lineNumber}</span>
                     </div>
                   )}
                 </div>
@@ -385,18 +386,18 @@ export function MushafView({
             })}
           </div>
 
-          {/* Authentic Page Footer */}
+          {/* Bottom Footer Navigation */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               justify: 'space-between',
-              borderTop: '2px double var(--border-subtle)',
               paddingTop: '0.6rem',
-              marginTop: '0.85rem',
+              marginTop: '0.4rem',
               direction: 'ltr',
-              fontSize: '0.78rem',
-              color: 'var(--text-muted)'
+              fontSize: '0.8rem',
+              color: '#4b5563',
+              fontWeight: 600
             }}
           >
             <button className="action-btn" onClick={handlePrevPage} disabled={pageNumber <= 1}>
@@ -404,8 +405,8 @@ export function MushafView({
               <span>Page {pageNumber - 1}</span>
             </button>
 
-            <div style={{ fontWeight: 600 }}>
-              Page {pageNumber} of 548 (16-Line Indo-Pak)
+            <div>
+              Taj Company 16-Line • Page {pageNumber} of 548
             </div>
 
             <button className="action-btn" onClick={handleNextPage} disabled={pageNumber >= 548}>
