@@ -1,15 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Flame, Volume2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flame, Volume2, Play, Pause, Bookmark } from 'lucide-react';
 import { fetchMushafPage } from '../services/quranApi';
 import { getWeakSpotsMap } from '../services/weakSpotsStorage';
 import { SURAHS } from '../data/quranMeta';
-
-// Convert Western digits (123) to Eastern Arabic numerals (١٢٣)
-function toArabicNumerals(num) {
-  if (num === null || num === undefined) return '';
-  const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-  return num.toString().replace(/\d/g, d => arabicDigits[d]);
-}
 
 export function MushafView({
   pageNumber = 1,
@@ -88,7 +81,7 @@ export function MushafView({
     let hasWordSlip = false;
     const weakVerses = new Set();
 
-    words.forEach(w => {
+    (words || []).forEach(w => {
       const item = getWeakSpotForVerse(w.surahNumber, w.numberInSurah);
       if (item) {
         weakVerses.add(item.id);
@@ -110,7 +103,7 @@ export function MushafView({
 
   return (
     <div className="mushaf-view-container" style={{ maxWidth: '840px', margin: '0 auto', padding: '0.5rem 0.5rem 2rem 0.5rem' }}>
-      {/* Top Pagination & Navigation Control Bar */}
+      {/* Top Pagination Toolbar */}
       <div
         className="mushaf-toolbar"
         style={{
@@ -131,7 +124,7 @@ export function MushafView({
             className="action-btn"
             onClick={handlePrevPage}
             disabled={pageNumber <= 1}
-            title="Previous Page (16-Line Mushaf)"
+            title="Previous Page (Taj Company 16-Line)"
             id="btn-mushaf-prev-page"
           >
             <ChevronLeft size={16} />
@@ -165,7 +158,7 @@ export function MushafView({
             className="action-btn"
             onClick={handleNextPage}
             disabled={pageNumber >= 548}
-            title="Next Page (16-Line Mushaf)"
+            title="Next Page (Taj Company 16-Line)"
             id="btn-mushaf-next-page"
           >
             <span>Next Page</span>
@@ -197,225 +190,181 @@ export function MushafView({
         </div>
       </div>
 
-      {/* Loading & Error States */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '4rem 1rem', color: 'var(--text-muted)' }}>
-          <div className="spinner" style={{ margin: '0 auto 1rem auto' }}></div>
-          <div>Loading Taj Company 16-Line Mushaf Page {pageNumber}...</div>
-        </div>
-      ) : error ? (
-        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--danger)' }}>
-          <div>Failed to load Mushaf page: {error}</div>
-          <button className="action-btn primary" onClick={() => onPageChange(pageNumber)} style={{ marginTop: '1rem' }}>
-            Retry Loading
-          </button>
-        </div>
-      ) : (
-        /* Authentic Taj Company 16-Line Double Border Frame */
-        <div
-          className="taj-mushaf-frame"
+      {/* Main Scanned Taj Company 16-Line Page Display with Line Highlight Overlay */}
+      <div
+        className="taj-mushaf-scanned-container"
+        style={{
+          position: 'relative',
+          background: '#ffffff',
+          borderRadius: '8px',
+          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.2)',
+          border: '2px solid #000000',
+          overflow: 'hidden'
+        }}
+        id={`taj-scanned-page-container-${pageNumber}`}
+      >
+        {/* Scanned Taj Company Printed Page Image */}
+        <img
+          src={`/mushaf_pages/page_${pageNumber}.webp`}
+          alt={`Taj Company 16-Line Mushaf Page ${pageNumber}`}
           style={{
-            background: '#ffffff',
-            color: '#000000',
-            border: '4px solid #000000',
-            outline: '1px solid #000000',
-            outlineOffset: '-6px',
-            borderRadius: '4px',
-            padding: '10px 8px',
-            boxShadow: '0 10px 32px rgba(0, 0, 0, 0.15)',
-            direction: 'rtl',
-            position: 'relative'
+            width: '100%',
+            height: 'auto',
+            display: 'block',
+            userSelect: 'none',
+            WebkitUserSelect: 'none'
           }}
-          id={`taj-mushaf-frame-page-${pageNumber}`}
-        >
-          {/* Top 3-Column Header Row (Taj Company Print Style) */}
+          onError={(e) => {
+            // Fallback to PNG if webp hasn't finished extracting
+            e.target.onerror = null;
+            e.target.src = `/mushaf_pages/page_${pageNumber}.png`;
+          }}
+        />
+
+        {/* Interactive 16-Line Grid Overlay */}
+        {pageData && pageData.lines && (
           <div
-            className="taj-header-row"
+            className="taj-lines-overlay-grid"
             style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 80px 1fr',
-              alignItems: 'center',
-              borderTop: '2px solid #000000',
-              borderBottom: '2px solid #000000',
-              marginBottom: '6px',
-              padding: '3px 0',
-              fontWeight: 700,
-              fontSize: '1.15rem',
-              color: '#000000'
-            }}
-          >
-            {/* Right Cell: Surah Name */}
-            <div style={{ textAlign: 'right', paddingRight: '8px', borderLeft: '1px solid #000000' }}>
-              {pageData.primarySurah ? pageData.primarySurah.name : ''}
-            </div>
-
-            {/* Center Cell: Page Number in Eastern Arabic Numerals */}
-            <div style={{ textAlign: 'center', fontSize: '1.25rem', fontWeight: 800 }}>
-              {toArabicNumerals(pageNumber)}
-            </div>
-
-            {/* Left Cell: Juz Name */}
-            <div style={{ textAlign: 'left', paddingLeft: '8px', borderRight: '1px solid #000000' }}>
-              {pageData.primaryJuz ? `الجزء ${toArabicNumerals(pageData.primaryJuz)}` : ''}
-            </div>
-          </div>
-
-          {/* 16 Horizontal Boxed Grid Rows */}
-          <div
-            className="taj-16-lines-grid"
-            style={{
+              position: 'absolute',
+              top: '8.2%',
+              bottom: '5.2%',
+              left: '4%',
+              right: '4%',
               display: 'flex',
               flexDirection: 'column',
-              borderTop: '1px solid #000000'
+              pointerEvents: 'none'
             }}
           >
-            {pageData.lines.map((lineObj, idx) => {
+            {pageData.lines.map((lineObj) => {
               const lineMistakeInfo = getLineMistakesInfo(lineObj.words);
               const isLineActivePlaying = currentAyah && lineObj.words.some(w => w.surahNumber === currentAyah.surahNumber && w.numberInSurah === currentAyah.numberInSurah);
-              const isLastLine = idx === pageData.lines.length - 1;
+              const firstWord = lineObj.words && lineObj.words[0];
 
               return (
                 <div
                   key={lineObj.lineNumber}
-                  className={`taj-line-cell ${lineMistakeInfo.hasMistake ? 'line-has-mistake' : ''} ${isLineActivePlaying ? 'line-playing' : ''}`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justify: 'space-between',
-                    minHeight: '44px',
-                    padding: '0.15rem 0.5rem',
-                    borderBottom: isLastLine ? '2px solid #000000' : '1px solid #000000',
-                    background: lineMistakeInfo.hasMistake
-                      ? 'rgba(239, 68, 68, 0.22)'
-                      : isLineActivePlaying
-                      ? 'rgba(16, 185, 129, 0.18)'
-                      : 'transparent',
-                    borderLeft: lineMistakeInfo.hasMistake
-                      ? '5px solid #ef4444'
-                      : isLineActivePlaying
-                      ? '5px solid #10b981'
-                      : 'none',
-                    borderRight: lineMistakeInfo.hasMistake
-                      ? '5px solid #ef4444'
-                      : isLineActivePlaying
-                      ? '5px solid #10b981'
-                      : 'none',
-                    transition: 'background 0.2s ease',
-                    position: 'relative'
+                  className={`line-overlay-row ${lineMistakeInfo.hasMistake ? 'has-mistake' : ''} ${isLineActivePlaying ? 'is-playing' : ''}`}
+                  onClick={() => {
+                    if (firstWord && onPlayAyah) {
+                      onPlayAyah({
+                        surahNumber: firstWord.surahNumber,
+                        numberInSurah: firstWord.numberInSurah
+                      });
+                    }
                   }}
-                  id={`taj-line-${pageNumber}-${lineObj.lineNumber}`}
+                  title={firstWord ? `Line ${lineObj.lineNumber} • Surah ${firstWord.surahNumber} Ayah ${firstWord.numberInSurah} (Click to recite)` : `Line ${lineObj.lineNumber}`}
+                  style={{
+                    flex: 1,
+                    pointerEvents: 'auto',
+                    cursor: firstWord ? 'pointer' : 'default',
+                    position: 'relative',
+                    background: lineMistakeInfo.hasMistake
+                      ? 'rgba(239, 68, 68, 0.28)'
+                      : isLineActivePlaying
+                      ? 'rgba(16, 185, 129, 0.24)'
+                      : 'transparent',
+                    borderTop: lineMistakeInfo.hasMistake
+                      ? '2px solid #ef4444'
+                      : isLineActivePlaying
+                      ? '2px solid #10b981'
+                      : '1px solid transparent',
+                    borderBottom: lineMistakeInfo.hasMistake
+                      ? '2px solid #ef4444'
+                      : isLineActivePlaying
+                      ? '2px solid #10b981'
+                      : '1px solid transparent',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.15s ease'
+                  }}
                 >
-                  {/* Line Calligraphy Words */}
-                  <div
-                    className="arabic-quran-text"
-                    style={{
-                      width: '100%',
-                      textAlign: 'justify',
-                      textJustify: 'inter-word',
-                      textAlignLast: 'justify',
-                      direction: 'rtl',
-                      fontSize: '1.45rem',
-                      lineHeight: 1.8,
-                      letterSpacing: '0px',
-                      color: '#000000',
-                      fontWeight: 600
-                    }}
-                  >
-                    {lineObj.words.map((word, wIdx) => {
-                      const ayahItem = getWeakSpotForVerse(word.surahNumber, word.numberInSurah);
-                      const isWordHighlighted = ayahItem && Array.isArray(ayahItem.highlightedWords) && ayahItem.highlightedWords.includes(wIdx);
-
-                      return (
-                        <span
-                          key={word.id || wIdx}
-                          onClick={() => {
-                            if (onPlayAyah) {
-                              onPlayAyah({
-                                surahNumber: word.surahNumber,
-                                numberInSurah: word.numberInSurah
-                              });
-                            }
-                          }}
-                          title={`Click to recite Surah ${word.surahNumber} Ayah ${word.numberInSurah}`}
-                          style={{
-                            cursor: 'pointer',
-                            display: 'inline-block',
-                            padding: '0 0.1rem',
-                            borderRadius: '2px',
-                            background: isWordHighlighted
-                              ? 'rgba(239, 68, 68, 0.45)'
-                              : 'transparent',
-                            color: isWordHighlighted ? '#dc2626' : '#000000',
-                            fontWeight: isWordHighlighted ? 800 : 'normal'
-                          }}
-                        >
-                          {word.textIndopak}{' '}
-                        </span>
-                      );
-                    })}
-                  </div>
-
-                  {/* Line Mistake Floating Tag */}
+                  {/* Line Mistake Badge Overlay */}
                   {lineMistakeInfo.hasMistake && (
                     <div
                       style={{
                         position: 'absolute',
-                        left: '6px',
+                        left: '4px',
                         top: '50%',
                         transform: 'translateY(-50%)',
                         fontSize: '0.65rem',
                         fontWeight: 800,
                         color: '#ffffff',
                         background: '#ef4444',
-                        padding: '0.1rem 0.45rem',
+                        padding: '0.12rem 0.45rem',
                         borderRadius: '10px',
                         direction: 'ltr',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.2rem',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                        zIndex: 10
                       }}
-                      title="Weak spot on this line"
                     >
                       <Flame size={10} color="#fff" />
-                      <span>Line {lineObj.lineNumber}</span>
+                      <span>Line {lineObj.lineNumber} Mistake</span>
+                    </div>
+                  )}
+
+                  {/* Line Audio Playing Badge Overlay */}
+                  {isLineActivePlaying && !lineMistakeInfo.hasMistake && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        right: '4px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '0.65rem',
+                        fontWeight: 800,
+                        color: '#ffffff',
+                        background: '#10b981',
+                        padding: '0.12rem 0.45rem',
+                        borderRadius: '10px',
+                        direction: 'ltr',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.2rem',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                        zIndex: 10
+                      }}
+                    >
+                      <Volume2 size={10} color="#fff" />
+                      <span>Reciting</span>
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
+        )}
+      </div>
 
-          {/* Bottom Footer Navigation */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justify: 'space-between',
-              paddingTop: '0.6rem',
-              marginTop: '0.4rem',
-              direction: 'ltr',
-              fontSize: '0.8rem',
-              color: '#4b5563',
-              fontWeight: 600
-            }}
-          >
-            <button className="action-btn" onClick={handlePrevPage} disabled={pageNumber <= 1}>
-              <ChevronLeft size={14} />
-              <span>Page {pageNumber - 1}</span>
-            </button>
+      {/* Footer Navigation */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justify: 'space-between',
+          paddingTop: '0.75rem',
+          marginTop: '0.5rem',
+          fontSize: '0.85rem',
+          color: 'var(--text-muted)',
+          fontWeight: 600
+        }}
+      >
+        <button className="action-btn" onClick={handlePrevPage} disabled={pageNumber <= 1}>
+          <ChevronLeft size={15} />
+          <span>Page {pageNumber - 1}</span>
+        </button>
 
-            <div>
-              Taj Company 16-Line • Page {pageNumber} of 548
-            </div>
-
-            <button className="action-btn" onClick={handleNextPage} disabled={pageNumber >= 548}>
-              <span>Page {pageNumber + 1}</span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
+        <div>
+          Taj Company 16-Line • Page {pageNumber} of 548
         </div>
-      )}
+
+        <button className="action-btn" onClick={handleNextPage} disabled={pageNumber >= 548}>
+          <span>Page {pageNumber + 1}</span>
+          <ChevronRight size={15} />
+        </button>
+      </div>
     </div>
   );
 }
