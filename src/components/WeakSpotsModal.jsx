@@ -12,7 +12,8 @@ import {
   BookOpen,
   Play,
   Filter,
-  Highlighter
+  Highlighter,
+  Brain
 } from 'lucide-react';
 import {
   getWeakSpots,
