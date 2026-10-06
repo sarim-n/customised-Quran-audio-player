@@ -116,9 +116,9 @@ export function WeakSpotsModal({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose} id="weak-spots-modal-backdrop">
+    <div className="modal-overlay" onClick={onClose} id="weak-spots-modal-overlay">
       <div
-        className="modal-content"
+        className="modal-card"
         onClick={e => e.stopPropagation()}
         style={{ maxWidth: '680px', width: '92%' }}
         id="weak-spots-modal-container"
