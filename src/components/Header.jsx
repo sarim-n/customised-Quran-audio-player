@@ -14,6 +14,7 @@ export function Header({
   setShowTranslation,
   onOpenSurahModal,
   onOpenJuzModal,
+  onToggleMushafView,
   onOpenReciterModal,
   onOpenGoToAyahModal,
   onOpenOfflineModal,
@@ -118,6 +119,18 @@ export function Header({
           >
             <Layers size={16} />
             <span>{viewMode === 'juz' ? `Juz ${currentJuz}` : '30 Juz'}</span>
+          </button>
+
+          {/* 16-Line Mushaf Reading View Button */}
+          <button
+            className={`action-btn ${viewMode === 'mushaf' ? 'primary' : ''}`}
+            onClick={onToggleMushafView}
+            title="Switch to authentic 16-Line Indo-Pak Mushaf reading view"
+            id="btn-select-mushaf-view"
+            style={viewMode === 'mushaf' ? { background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' } : {}}
+          >
+            <BookOpen size={16} />
+            <span>16-Line Mushaf</span>
           </button>
 
           {/* Go to Ayah Trigger Button (Permanently visible in sticky header) */}

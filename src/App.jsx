@@ -9,7 +9,8 @@ import { PlayerBar } from './components/PlayerBar';
 import { GoToAyahModal } from './components/GoToAyahModal';
 import { OfflineModal } from './components/OfflineModal';
 import { WeakSpotsModal } from './components/WeakSpotsModal';
-import { fetchSurah, fetchJuz } from './services/quranApi';
+import { MushafView } from './components/MushafView';
+import { fetchSurah, fetchJuz, getMushafPageForAyah } from './services/quranApi';
 import { SURAHS, INDOPAK_JUZ_METADATA, MADANI_JUZ_METADATA } from './data/quranMeta';
 import { useQuranAudio } from './hooks/useQuranAudio';
 import { isItemDownloaded } from './services/offlineStorage';
@@ -24,15 +25,24 @@ import {
 } from './services/weakSpotsStorage';
 import { AlertCircle, RefreshCw, Loader2, Target, CheckCircle2, DownloadCloud, Flame } from 'lucide-react';
 
-// Parse initial navigation from URL hash or localStorage so reloads preserve current Surah/Juz
+// Parse initial navigation from URL hash or localStorage so reloads preserve current Surah/Juz/Mushaf Page
 function getInitialNavigationState() {
   if (typeof window !== 'undefined') {
     const hash = window.location.hash || '';
+
+    const pageMatch = hash.match(/^#(mushaf|page)=(\d+)/i);
+    if (pageMatch) {
+      const num = parseInt(pageMatch[2], 10);
+      if (num >= 1 && num <= 548) {
+        return { viewMode: 'mushaf', surahNumber: 1, juzNumber: 1, mushafPage: num };
+      }
+    }
+
     const surahMatch = hash.match(/^#surah=(\d+)/i);
     if (surahMatch) {
       const num = parseInt(surahMatch[1], 10);
       if (num >= 1 && num <= 114) {
-        return { viewMode: 'surah', surahNumber: num, juzNumber: 1 };
+        return { viewMode: 'surah', surahNumber: num, juzNumber: 1, mushafPage: 1 };
       }
     }
 
@@ -40,7 +50,7 @@ function getInitialNavigationState() {
     if (juzMatch) {
       const num = parseInt(juzMatch[1], 10);
       if (num >= 1 && num <= 30) {
-        return { viewMode: 'juz', surahNumber: 1, juzNumber: num };
+        return { viewMode: 'juz', surahNumber: 1, juzNumber: num, mushafPage: 1 };
       }
     }
 
@@ -49,13 +59,17 @@ function getInitialNavigationState() {
     const validSurah = savedSurah >= 1 && savedSurah <= 114 ? savedSurah : 1;
     const savedJuz = parseInt(localStorage.getItem('quran_last_juz') || '1', 10);
     const validJuz = savedJuz >= 1 && savedJuz <= 30 ? savedJuz : 1;
+    const savedPage = parseInt(localStorage.getItem('quran_mushaf_page') || '1', 10);
+    const validPage = savedPage >= 1 && savedPage <= 548 ? savedPage : 1;
 
-    if (savedMode === 'juz') {
-      return { viewMode: 'juz', surahNumber: validSurah, juzNumber: validJuz };
+    if (savedMode === 'mushaf') {
+      return { viewMode: 'mushaf', surahNumber: validSurah, juzNumber: validJuz, mushafPage: validPage };
+    } else if (savedMode === 'juz') {
+      return { viewMode: 'juz', surahNumber: validSurah, juzNumber: validJuz, mushafPage: validPage };
     }
-    return { viewMode: 'surah', surahNumber: validSurah, juzNumber: validJuz };
+    return { viewMode: 'surah', surahNumber: validSurah, juzNumber: validJuz, mushafPage: validPage };
   }
-  return { viewMode: 'surah', surahNumber: 1, juzNumber: 1 };
+  return { viewMode: 'surah', surahNumber: 1, juzNumber: 1, mushafPage: 1 };
 }
 
 export function App() {
@@ -71,11 +85,12 @@ export function App() {
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const userScrollTimerRef = useRef(null);
 
-  // Navigation state (restored from URL hash or localStorage so reload stays on current Surah/Juz)
+  // Navigation state (restored from URL hash or localStorage so reload stays on current Surah/Juz/Mushaf)
   const [initialNav] = useState(getInitialNavigationState);
-  const [viewMode, setViewMode] = useState(initialNav.viewMode); // 'surah' | 'juz'
+  const [viewMode, setViewMode] = useState(initialNav.viewMode); // 'surah' | 'juz' | 'mushaf'
   const [currentSurahNumber, setCurrentSurahNumber] = useState(initialNav.surahNumber);
   const [currentJuzNumber, setCurrentJuzNumber] = useState(initialNav.juzNumber);
+  const [mushafPageNumber, setMushafPageNumber] = useState(initialNav.mushafPage || 1);
 
   // Juz division convention: 'indopak' (subcontinent) vs 'madani' (Uthmani)
   const [juzConvention, setJuzConvention] = useState(() => {
@@ -285,10 +300,16 @@ export function App() {
     }
   }, [viewMode, currentSurahNumber, ayahs, startRangeRepetition, showToast]);
 
-  // Jump to weak spot in main view
-  const handleJumpToWeakSpot = useCallback((spot) => {
+  // Jump to weak spot in main view or 16-line Mushaf page
+  const handleJumpToWeakSpot = useCallback(async (spot) => {
     if (!spot) return;
-    if (viewMode === 'surah' && currentSurahNumber === spot.surahNumber) {
+    if (viewMode === 'mushaf') {
+      const page = await getMushafPageForAyah(spot.surahNumber, spot.numberInSurah);
+      setMushafPageNumber(page);
+      localStorage.setItem('quran_mushaf_page', page.toString());
+      window.history.replaceState(null, '', `#page=${page}`);
+      showToast(`Navigated to 16-Line Mushaf Page ${page}`);
+    } else if (viewMode === 'surah' && currentSurahNumber === spot.surahNumber) {
       setHighlightedAyahNumber(spot.numberInSurah);
       const el = document.getElementById(`ayah-${spot.numberInSurah}`);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -297,7 +318,7 @@ export function App() {
       setViewMode('surah');
       setCurrentSurahNumber(spot.surahNumber);
     }
-  }, [viewMode, currentSurahNumber]);
+  }, [viewMode, currentSurahNumber, showToast]);
 
   // Execute pending triplet revision when content finishes loading
   useEffect(() => {
@@ -345,10 +366,16 @@ export function App() {
     loadContent();
   }, [loadContent]);
 
-  // Keep localStorage and URL hash synced whenever viewMode, Surah, or Juz changes
+  // Keep localStorage and URL hash synced whenever viewMode, Surah, Juz, or Mushaf page changes
   useEffect(() => {
     localStorage.setItem('quran_view_mode', viewMode);
-    if (viewMode === 'surah') {
+    if (viewMode === 'mushaf') {
+      localStorage.setItem('quran_mushaf_page', mushafPageNumber.toString());
+      const targetHash = `#page=${mushafPageNumber}`;
+      if (window.location.hash !== targetHash) {
+        window.history.replaceState(null, '', targetHash);
+      }
+    } else if (viewMode === 'surah') {
       localStorage.setItem('quran_last_surah', currentSurahNumber.toString());
       const targetHash = `#surah=${currentSurahNumber}`;
       if (window.location.hash !== targetHash) {
@@ -361,12 +388,21 @@ export function App() {
         window.history.replaceState(null, '', targetHash);
       }
     }
-  }, [viewMode, currentSurahNumber, currentJuzNumber]);
+  }, [viewMode, currentSurahNumber, currentJuzNumber, mushafPageNumber]);
 
   // Support browser Back/Forward navigation with hash
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash || '';
+      const pageMatch = hash.match(/^#(mushaf|page)=(\d+)/i);
+      if (pageMatch) {
+        const num = parseInt(pageMatch[2], 10);
+        if (num >= 1 && num <= 548) {
+          setViewMode('mushaf');
+          setMushafPageNumber(num);
+        }
+        return;
+      }
       const surahMatch = hash.match(/^#surah=(\d+)/i);
       if (surahMatch) {
         const num = parseInt(surahMatch[1], 10);
@@ -602,6 +638,14 @@ export function App() {
         setShowTranslation={setShowTranslation}
         onOpenSurahModal={() => setIsSurahModalOpen(true)}
         onOpenJuzModal={() => setIsJuzModalOpen(true)}
+        onToggleMushafView={() => {
+          if (viewMode === 'mushaf') {
+            setViewMode('surah');
+          } else {
+            setViewMode('mushaf');
+            showToast('Switched to 16-Line Indo-Pak Mushaf Reading View');
+          }
+        }}
         onOpenReciterModal={() => setIsReciterModalOpen(true)}
         onOpenGoToAyahModal={() => setIsGoToAyahModalOpen(true)}
         onOpenOfflineModal={() => setIsOfflineModalOpen(true)}
@@ -615,7 +659,26 @@ export function App() {
 
       {/* Main Body Content */}
       <main className="main-content">
-        {/* API Error Alert */}
+        {viewMode === 'mushaf' ? (
+          <MushafView
+            pageNumber={mushafPageNumber}
+            onPageChange={(newPage) => {
+              const p = Math.max(1, Math.min(548, newPage));
+              setMushafPageNumber(p);
+              localStorage.setItem('quran_mushaf_page', p.toString());
+              window.history.replaceState(null, '', `#page=${p}`);
+              window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+            }}
+            currentAyah={currentAyah}
+            isPlaying={isPlaying}
+            onPlayAyah={playAyah}
+            onPauseAudio={togglePlayPause}
+            onMarkMistake={handleMarkMistake}
+            onOpenWeakSpotsModal={() => setIsWeakSpotsModalOpen(true)}
+          />
+        ) : (
+          <>
+            {/* API Error Alert */}
         {apiError && (
           <div
             style={{
@@ -858,6 +921,8 @@ export function App() {
               );
             })}
           </div>
+        )}
+        </>
         )}
       </main>
 

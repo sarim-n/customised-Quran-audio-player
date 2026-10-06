@@ -279,3 +279,162 @@ function cleanAyahText(text, surahNumber, numberInSurah) {
   // Keep original text intact for authentic Quran recitation & reading
   return text.trim();
 }
+
+const mushafCache = new Map();
+
+/**
+ * Fetch 16-line Indo-Pak Mushaf page with word and line mappings
+ * Uses mushaf=7 (16-line Indo-Pak Mushaf)
+ * @param {number} pageNumber (1-548 for 16-line Mushaf)
+ * @returns {Promise<Object>}
+ */
+export async function fetchMushafPage(pageNumber) {
+  const page = Math.max(1, Math.min(548, Number(pageNumber) || 1));
+  const cacheKey = `mushaf_7_page_${page}`;
+
+  if (mushafCache.has(cacheKey)) {
+    return mushafCache.get(cacheKey);
+  }
+
+  const apiUrl = `https://api.quran.com/api/v4/verses/by_page/${page}?mushaf=7&words=true&word_fields=line_number,text_indopak`;
+
+  try {
+    let res = null;
+    try {
+      res = await fetch(apiUrl);
+      if (res.ok && typeof window !== 'undefined' && 'caches' in window) {
+        caches.open(API_CACHE_NAME).then(c => c.put(apiUrl, res.clone())).catch(() => {});
+      }
+    } catch (netErr) {
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        const cache = await caches.open(API_CACHE_NAME);
+        res = await cache.match(apiUrl);
+      }
+      if (!res) throw netErr;
+    }
+
+    if (!res || !res.ok) {
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        const cache = await caches.open(API_CACHE_NAME);
+        const cachedRes = await cache.match(apiUrl);
+        if (cachedRes) res = cachedRes;
+      }
+    }
+
+    if (!res || !res.ok) {
+      throw new Error(`Failed to load Mushaf page ${page} (HTTP ${res ? res.status : 'offline'})`);
+    }
+
+    const json = await res.json();
+    const verses = json.verses || [];
+
+    // Organize into lines (1 to 16)
+    const linesMap = {};
+    for (let i = 1; i <= 16; i++) {
+      linesMap[i] = [];
+    }
+
+    const surahsSet = new Set();
+    const juzSet = new Set();
+
+    verses.forEach(verse => {
+      const [sNumStr, aNumStr] = (verse.verse_key || '1:1').split(':');
+      const surahNumber = parseInt(sNumStr, 10);
+      const numberInSurah = parseInt(aNumStr, 10);
+      const surahMeta = SURAHS.find(s => s.number === surahNumber);
+
+      surahsSet.add(surahNumber);
+      if (verse.juz_number) juzSet.add(verse.juz_number);
+
+      (verse.words || []).forEach(word => {
+        const lineNum = word.line_number || 1;
+        if (!linesMap[lineNum]) linesMap[lineNum] = [];
+
+        linesMap[lineNum].push({
+          id: word.id,
+          position: word.position,
+          textIndopak: word.text_indopak || word.text,
+          charType: word.char_type_name, // 'word' | 'end'
+          lineNumber: lineNum,
+          surahNumber,
+          numberInSurah,
+          verseKey: `${surahNumber}:${numberInSurah}`,
+          surahEnglishName: surahMeta ? surahMeta.englishName : `Surah ${surahNumber}`,
+          juzNumber: verse.juz_number || 1
+        });
+      });
+    });
+
+    // Format final lines array
+    const lines = Object.keys(linesMap).map(lineNumStr => {
+      const lineNum = parseInt(lineNumStr, 10);
+      const words = linesMap[lineNum];
+      
+      // Determine unique verse keys on this line
+      const verseKeysOnLine = [...new Set(words.map(w => w.verseKey))];
+      const surahsOnLine = [...new Set(words.map(w => w.surahNumber))];
+
+      return {
+        lineNumber: lineNum,
+        words,
+        verseKeysOnLine,
+        surahsOnLine
+      };
+    });
+
+    const primarySurah = SURAHS.find(s => s.number === Array.from(surahsSet)[0]) || SURAHS[0];
+    const primaryJuz = Array.from(juzSet)[0] || 1;
+
+    const result = {
+      pageNumber: page,
+      totalPages: 548,
+      primarySurah,
+      primaryJuz,
+      surahNumbers: Array.from(surahsSet),
+      lines,
+      verses
+    };
+
+    mushafCache.set(cacheKey, result);
+    return result;
+  } catch (error) {
+    console.error(`Error fetching Mushaf page ${page}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get 16-line Indo-Pak Mushaf page number for a given Ayah (Surah:Ayah)
+ * @param {number} surahNumber
+ * @param {number} numberInSurah
+ * @returns {Promise<number>} pageNumber
+ */
+export async function getMushafPageForAyah(surahNumber, numberInSurah) {
+  const cacheKey = `lookup_mushaf_7_${surahNumber}_${numberInSurah}`;
+  const apiUrl = `https://api.quran.com/api/v4/verses/by_key/${surahNumber}:${numberInSurah}?mushaf=7`;
+
+  try {
+    let res = null;
+    try {
+      res = await fetch(apiUrl);
+    } catch {
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        const cache = await caches.open(API_CACHE_NAME);
+        res = await cache.match(apiUrl);
+      }
+    }
+
+    if (res && res.ok) {
+      const json = await res.json();
+      if (json.verse && json.verse.page_number) {
+        return json.verse.page_number;
+      }
+    }
+  } catch (err) {
+    console.warn(`Fallback lookup for ${surahNumber}:${numberInSurah}:`, err);
+  }
+
+  // Fallback calculation if offline and not cached yet
+  return 1;
+}
+
