@@ -278,6 +278,7 @@ export function MushafView({
                     transition: 'all 0.15s ease'
                   }}
                 >
+                  {/* Line Overlay Cell */}
                   {/* Line Mistake Badge Overlay */}
                   {lineMistakeInfo.hasMistake && (
                     <div
@@ -301,7 +302,7 @@ export function MushafView({
                       }}
                     >
                       <Flame size={10} color="#fff" />
-                      <span>Line {lineObj.lineNumber} Mistake</span>
+                      <span>Line {lineObj.lineNumber} Mistake ({lineMistakeInfo.count})</span>
                     </div>
                   )}
 
