@@ -61,6 +61,19 @@ export function getMistakeCount(surahNumber, numberInSurah) {
 }
 
 /**
+ * Get item by id
+ * @param {number} surahNumber
+ * @param {number} numberInSurah
+ * @returns {Object|null}
+ */
+export function getWeakSpotItem(surahNumber, numberInSurah) {
+  if (!surahNumber || !numberInSurah) return null;
+  const map = getWeakSpotsMap();
+  const id = `${surahNumber}:${numberInSurah}`;
+  return map[id] || null;
+}
+
+/**
  * Mark a mistake on an Ayah (creates or increments count)
  * @param {Object} ayah - Ayah object with surahNumber, numberInSurah, text, translation, juz, ruku
  * @param {Object} [surahMeta] - Surah metadata object with englishName, name, etc.
@@ -91,6 +104,7 @@ export function markMistake(ayah, surahMeta = null) {
     text: ayah.text || existing?.text || '',
     translation: ayah.translation || existing?.translation || '',
     mistakeCount: newCount,
+    highlightedWords: existing?.highlightedWords || [],
     lastMarked: now,
     createdAt: existing ? existing.createdAt : now
   };
@@ -98,6 +112,31 @@ export function markMistake(ayah, surahMeta = null) {
   map[id] = item;
   saveWeakSpotsMap(map);
   return item;
+}
+
+/**
+ * Toggle word highlight index for an Ayah text
+ * @param {number} surahNumber
+ * @param {number} numberInSurah
+ * @param {number} wordIndex
+ * @returns {Array<number>} Updated array of highlighted word indices
+ */
+export function toggleWordHighlight(surahNumber, numberInSurah, wordIndex) {
+  const map = getWeakSpotsMap();
+  const id = `${surahNumber}:${numberInSurah}`;
+  if (!map[id]) return [];
+
+  const currentList = Array.isArray(map[id].highlightedWords) ? [...map[id].highlightedWords] : [];
+  const idx = currentList.indexOf(wordIndex);
+  if (idx !== -1) {
+    currentList.splice(idx, 1);
+  } else {
+    currentList.push(wordIndex);
+  }
+
+  map[id].highlightedWords = currentList;
+  saveWeakSpotsMap(map);
+  return currentList;
 }
 
 /**
@@ -141,10 +180,27 @@ export function clearAllWeakSpots() {
 }
 
 /**
- * Get total count of weak ayahs
+ * Get total count of weak ayahs overall
  * @returns {number}
  */
 export function getWeakSpotsCount() {
   const map = getWeakSpotsMap();
   return Object.keys(map).length;
+}
+
+/**
+ * Get count of weak spots for specific scope (Surah or Juz)
+ * @param {string} viewMode - 'surah' | 'juz'
+ * @param {number} currentSurahNumber
+ * @param {number} currentJuzNumber
+ * @returns {number}
+ */
+export function getWeakSpotsCountForScope(viewMode, currentSurahNumber, currentJuzNumber) {
+  const map = getWeakSpotsMap();
+  const list = Object.values(map);
+
+  if (viewMode === 'juz') {
+    return list.filter(item => item.juzNumber === currentJuzNumber).length;
+  }
+  return list.filter(item => item.surahNumber === currentSurahNumber).length;
 }

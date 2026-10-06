@@ -13,7 +13,7 @@ import { fetchSurah, fetchJuz } from './services/quranApi';
 import { SURAHS, INDOPAK_JUZ_METADATA, MADANI_JUZ_METADATA } from './data/quranMeta';
 import { useQuranAudio } from './hooks/useQuranAudio';
 import { isItemDownloaded } from './services/offlineStorage';
-import { getWeakSpotsCount, getMistakeCount, markMistake } from './services/weakSpotsStorage';
+import { getWeakSpotsCount, getWeakSpotsCountForScope, getMistakeCount, markMistake } from './services/weakSpotsStorage';
 import { AlertCircle, RefreshCw, Loader2, Target, CheckCircle2, DownloadCloud, Flame } from 'lucide-react';
 
 // Parse initial navigation from URL hash or localStorage so reloads preserve current Surah/Juz
@@ -171,6 +171,11 @@ export function App() {
     window.addEventListener('quran-weak-spots-updated', updateWeakSpotsState);
     return () => window.removeEventListener('quran-weak-spots-updated', updateWeakSpotsState);
   }, []);
+
+  // Weak Spots count in active scope (Surah or Juz)
+  const weakSpotsScopeCount = useMemo(() => {
+    return getWeakSpotsCountForScope(viewMode, currentSurahNumber, currentJuzNumber);
+  }, [viewMode, currentSurahNumber, currentJuzNumber, weakSpotsVersion]);
 
   // Scroll to top whenever Surah, Juz, or View Mode changes
   useEffect(() => {
@@ -573,6 +578,7 @@ export function App() {
         onOpenOfflineModal={() => setIsOfflineModalOpen(true)}
         onOpenWeakSpotsModal={() => setIsWeakSpotsModalOpen(true)}
         weakSpotsCount={weakSpotsCount}
+        weakSpotsScopeCount={weakSpotsScopeCount}
         autoScroll={autoScroll}
         onToggleAutoScroll={handleToggleAutoScroll}
         onShowToast={showToast}
@@ -709,6 +715,7 @@ export function App() {
             juzRepeatCount={juzRepeatCount}
             onOpenWeakSpotsModal={() => setIsWeakSpotsModalOpen(true)}
             weakSpotsCount={weakSpotsCount}
+            weakSpotsScopeCount={weakSpotsScopeCount}
           />
         )}
 
@@ -907,6 +914,10 @@ export function App() {
       <WeakSpotsModal
         isOpen={isWeakSpotsModalOpen}
         onClose={() => setIsWeakSpotsModalOpen(false)}
+        viewMode={viewMode}
+        currentSurahNumber={currentSurahNumber}
+        currentJuzNumber={currentJuzNumber}
+        currentSurahMeta={currentSurahMeta}
         onReviseTriplet={handleReviseTriplet}
         onJumpToAyah={handleJumpToWeakSpot}
         onShowToast={showToast}

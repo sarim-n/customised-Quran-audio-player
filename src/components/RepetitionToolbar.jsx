@@ -28,7 +28,8 @@ export function RepetitionToolbar({
   surahRepeatCount,
   juzRepeatCount,
   onOpenWeakSpotsModal,
-  weakSpotsCount = 0
+  weakSpotsCount = 0,
+  weakSpotsScopeCount = 0
 }) {
   const [activeTab, setActiveTab] = useState('range'); // 'range' | 'ruku' | 'surah' | 'juz'
   const [selectedRangeRepeat, setSelectedRangeRepeat] = useState(rangeRepeatCount || 3);
@@ -304,7 +305,13 @@ export function RepetitionToolbar({
             }}
           >
             <Flame size={16} color={weakSpotsCount > 0 ? '#ef4444' : 'currentColor'} />
-            <span>Weak Spots {weakSpotsCount > 0 ? `(${weakSpotsCount})` : ''}</span>
+            <span>
+              Weak Spots {weakSpotsCount > 0 ? (
+                weakSpotsScopeCount > 0 && weakSpotsScopeCount !== weakSpotsCount
+                  ? `(${weakSpotsScopeCount} / ${weakSpotsCount})`
+                  : `(${weakSpotsCount})`
+              ) : ''}
+            </span>
           </button>
         )}
       </div>

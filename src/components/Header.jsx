@@ -19,6 +19,7 @@ export function Header({
   onOpenOfflineModal,
   onOpenWeakSpotsModal,
   weakSpotsCount = 0,
+  weakSpotsScopeCount = 0,
   autoScroll,
   onToggleAutoScroll,
   onShowToast
@@ -135,7 +136,7 @@ export function Header({
           <button
             className={`action-btn ${weakSpotsCount > 0 ? 'warning' : ''}`}
             onClick={onOpenWeakSpotsModal}
-            title={weakSpotsCount > 0 ? `${weakSpotsCount} weak spots tracked. Open to revise!` : 'Open Weak Spots & Mistake Tracker'}
+            title={weakSpotsCount > 0 ? `${weakSpotsScopeCount} weak spots in current ${viewMode === 'juz' ? `Juz ${currentJuz}` : 'Surah'} (${weakSpotsCount} overall). Click to revise!` : 'Open Weak Spots & Mistake Tracker'}
             id="btn-open-weak-spots-modal"
             style={
               weakSpotsCount > 0
@@ -148,7 +149,13 @@ export function Header({
             }
           >
             <Flame size={16} color={weakSpotsCount > 0 ? '#ef4444' : 'currentColor'} />
-            <span>Weak Spots {weakSpotsCount > 0 ? `(${weakSpotsCount})` : ''}</span>
+            <span>
+              Weak Spots {weakSpotsCount > 0 ? (
+                weakSpotsScopeCount > 0 && weakSpotsScopeCount !== weakSpotsCount
+                  ? `(${weakSpotsScopeCount} / ${weakSpotsCount})`
+                  : `(${weakSpotsCount})`
+              ) : ''}
+            </span>
           </button>
 
           {/* Reciter Selector Button */}
