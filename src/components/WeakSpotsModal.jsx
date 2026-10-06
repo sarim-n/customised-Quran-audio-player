@@ -19,7 +19,6 @@ import {
   markMistake,
   removeWeakSpot,
   clearAllWeakSpots,
-  decrementMistake,
   toggleWordHighlight
 } from '../services/weakSpotsStorage';
 
@@ -40,6 +39,8 @@ export function WeakSpotsModal({
   
   // Filter Scope mode: 'scope' (Current Surah/Juz) vs 'all' (All Quran)
   const [filterMode, setFilterMode] = useState('scope');
+  // Mistake Type filter: 'all' | 'word_highlight' | 'memory_gap'
+  const [typeFilter, setTypeFilter] = useState('all');
 
   // Refresh weak spots list from storage
   const refreshList = () => {
@@ -50,6 +51,7 @@ export function WeakSpotsModal({
     if (!isOpen) return;
     refreshList();
     setFilterMode('scope'); // Default to scope filtering on open
+    setTypeFilter('all');
 
     const handleUpdate = () => refreshList();
     window.addEventListener('quran-weak-spots-updated', handleUpdate);
@@ -74,15 +76,11 @@ export function WeakSpotsModal({
     return weakSpots.filter(w => w.surahNumber === currentSurahNumber).length;
   }, [weakSpots, viewMode, currentSurahNumber, currentJuzNumber]);
 
-  const totalMistakesCount = useMemo(() => {
-    return weakSpots.reduce((acc, curr) => acc + (curr.mistakeCount || 1), 0);
-  }, [weakSpots]);
-
-  // Filter list by scope AND search query
+  // Filter list by scope, type filter, AND search query
   const filteredWeakSpots = useMemo(() => {
     let list = weakSpots;
 
-    // Apply Scope Filter if 'scope' mode active
+    // 1. Apply Scope Filter
     if (filterMode === 'scope') {
       if (viewMode === 'juz') {
         list = list.filter(item => item.juzNumber === currentJuzNumber);
@@ -91,7 +89,14 @@ export function WeakSpotsModal({
       }
     }
 
-    // Apply Search Query Filter (Surah name, Juz name/number, Ayah number, translation)
+    // 2. Apply Mistake Type Filter
+    if (typeFilter === 'word_highlight') {
+      list = list.filter(item => item.mistakeType === 'word_highlight' || (Array.isArray(item.highlightedWords) && item.highlightedWords.length > 0));
+    } else if (typeFilter === 'memory_gap') {
+      list = list.filter(item => item.mistakeType === 'memory_gap' || (!item.mistakeType && (!item.highlightedWords || item.highlightedWords.length === 0)));
+    }
+
+    // 3. Apply Search Query Filter (Surah name, Juz name/number, Ayah number, translation)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const cleanQ = q.replace(/^(juz|para|surah)\s*/i, '');
@@ -114,7 +119,7 @@ export function WeakSpotsModal({
     }
 
     return list;
-  }, [weakSpots, filterMode, viewMode, currentSurahNumber, currentJuzNumber, searchQuery]);
+  }, [weakSpots, filterMode, typeFilter, viewMode, currentSurahNumber, currentJuzNumber, searchQuery]);
 
   if (!isOpen) return null;
 
@@ -249,44 +254,57 @@ export function WeakSpotsModal({
               </button>
             </div>
 
-            {/* Overall Mistakes Count Badge */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span
+            {/* Clear All Action */}
+            {weakSpots.length > 0 && (
+              <button
+                className="action-btn danger"
+                onClick={handleClearAll}
+                title="Clear all recorded weak spots"
+                id="btn-clear-all-weak-spots"
                 style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  padding: '0.25rem 0.6rem',
-                  borderRadius: 'var(--radius-full)',
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  color: '#ef4444',
-                  border: '1px solid rgba(239, 68, 68, 0.25)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.3rem'
+                  fontSize: '0.72rem',
+                  padding: '0.2rem 0.55rem',
+                  borderColor: confirmClearAll ? 'red' : undefined,
+                  background: confirmClearAll ? 'rgba(239, 68, 68, 0.2)' : undefined
                 }}
               >
-                <Flame size={12} />
-                {totalMistakesCount} Total Mistakes
-              </span>
+                <Trash2 size={12} />
+                <span>{confirmClearAll ? 'Confirm Clear All?' : 'Clear All'}</span>
+              </button>
+            )}
+          </div>
 
-              {weakSpots.length > 0 && (
-                <button
-                  className="action-btn danger"
-                  onClick={handleClearAll}
-                  title="Clear all recorded weak spots"
-                  id="btn-clear-all-weak-spots"
-                  style={{
-                    fontSize: '0.72rem',
-                    padding: '0.2rem 0.55rem',
-                    borderColor: confirmClearAll ? 'red' : undefined,
-                    background: confirmClearAll ? 'rgba(239, 68, 68, 0.2)' : undefined
-                  }}
-                >
-                  <Trash2 size={12} />
-                  <span>{confirmClearAll ? 'Confirm Clear All?' : 'Clear All'}</span>
-                </button>
-              )}
-            </div>
+          {/* Type Filter Row: All, Word Slips, Memory Gaps */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.65rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, marginRight: '0.2rem' }}>Type:</span>
+            <button
+              className={`preset-chip ${typeFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setTypeFilter('all')}
+              style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem' }}
+              id="btn-type-filter-all"
+            >
+              All Types
+            </button>
+
+            <button
+              className={`preset-chip ${typeFilter === 'word_highlight' ? 'active' : ''}`}
+              onClick={() => setTypeFilter('word_highlight')}
+              style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+              id="btn-type-filter-word-slips"
+            >
+              <Highlighter size={12} color="#ef4444" />
+              <span>Word Slips</span>
+            </button>
+
+            <button
+              className={`preset-chip ${typeFilter === 'memory_gap' ? 'active' : ''}`}
+              onClick={() => setTypeFilter('memory_gap')}
+              style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+              id="btn-type-filter-memory-gaps"
+            >
+              <Brain size={12} color="#eab308" />
+              <span>Memory Gaps</span>
+            </button>
           </div>
 
           {/* Search Input Box */}
@@ -392,18 +410,18 @@ export function WeakSpotsModal({
                           style={{
                             fontSize: '0.75rem',
                             fontWeight: 700,
-                            color: '#ef4444',
-                            background: 'rgba(239, 68, 68, 0.12)',
+                            color: spot.mistakeType === 'word_highlight' ? '#ef4444' : '#eab308',
+                            background: spot.mistakeType === 'word_highlight' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(234, 179, 8, 0.12)',
                             padding: '0.2rem 0.55rem',
                             borderRadius: 'var(--radius-full)',
-                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                            border: spot.mistakeType === 'word_highlight' ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid rgba(234, 179, 8, 0.25)',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '0.25rem'
                           }}
                         >
-                          <Flame size={12} />
-                          {spot.mistakeCount} {spot.mistakeCount === 1 ? 'Mistake' : 'Mistakes'}
+                          {spot.mistakeType === 'word_highlight' ? <Highlighter size={12} color="#ef4444" /> : <Brain size={12} color="#eab308" />}
+                          {spot.mistakeType === 'word_highlight' ? 'Word Slip' : 'Memory Gap'}
                         </span>
 
                         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
@@ -510,18 +528,6 @@ export function WeakSpotsModal({
                         >
                           <Target size={13} />
                           <span>Go to Ayah</span>
-                        </button>
-
-                        {/* Increment +1 mistake count button */}
-                        <button
-                          className="action-btn"
-                          onClick={() => handleIncrement(spot)}
-                          title="Increment mistake count (+1)"
-                          id={`btn-inc-mistake-${spot.surahNumber}-${spot.numberInSurah}`}
-                          style={{ fontSize: '0.75rem', padding: '0.3rem 0.55rem' }}
-                        >
-                          <Plus size={13} />
-                          <span>+1</span>
                         </button>
 
                         {/* Remove button */}

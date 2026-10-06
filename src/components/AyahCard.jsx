@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Repeat, Bookmark, Flag, X, Layers, Flame } from 'lucide-react';
+import { Play, Pause, Repeat, Bookmark, Flag, X, Layers, Flame, Highlighter, Brain, Trash2 } from 'lucide-react';
 import { REPEAT_PRESETS } from '../data/quranMeta';
 
 export function AyahCard({
@@ -25,29 +25,36 @@ export function AyahCard({
   onSetRangeEnd,
   onClearRange,
   onMarkMistake,
-  mistakeCount = 0
+  onRemoveWeakSpot,
+  onToggleWordHighlight,
+  isWeakSpot = false,
+  weakSpotItem = null
 }) {
   const [showRepeatMenu, setShowRepeatMenu] = useState(false);
+  const [showMistakeMenu, setShowMistakeMenu] = useState(false);
   const [isCustomActive, setIsCustomActive] = useState(false);
   const [customRepeatValue, setCustomRepeatValue] = useState('');
 
   const repeatMenuRef = useRef(null);
+  const mistakeMenuRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const isLongPressRef = useRef(false);
   const startPosRef = useRef({ x: 0, y: 0 });
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
-    if (!showRepeatMenu) return;
     const handleOutsideClick = (e) => {
-      if (repeatMenuRef.current && !repeatMenuRef.current.contains(e.target)) {
+      if (showRepeatMenu && repeatMenuRef.current && !repeatMenuRef.current.contains(e.target)) {
         setShowRepeatMenu(false);
         setIsCustomActive(false);
+      }
+      if (showMistakeMenu && mistakeMenuRef.current && !mistakeMenuRef.current.contains(e.target)) {
+        setShowMistakeMenu(false);
       }
     };
     document.addEventListener('pointerdown', handleOutsideClick);
     return () => document.removeEventListener('pointerdown', handleOutsideClick);
-  }, [showRepeatMenu]);
+  }, [showRepeatMenu, showMistakeMenu]);
 
   // Pointer event handlers for Long Press vs Click
   const handlePointerDown = (e) => {
@@ -311,27 +318,114 @@ export function AyahCard({
             </button>
           )}
 
-          {/* Mark Mistake Button */}
+          {/* Mark Mistake Container & Popover */}
           {onMarkMistake && (
-            <button
-              className={`action-btn ${mistakeCount > 0 ? 'warning' : ''}`}
-              onClick={() => onMarkMistake(ayah)}
-              title={mistakeCount > 0 ? `Marked mistake ${mistakeCount} times. Click to increment.` : `Mark a mistake on Ayah ${ayah.numberInSurah} with one click`}
-              id={`ayah-mark-mistake-btn-${ayah.numberInSurah}`}
-              style={
-                mistakeCount > 0
-                  ? {
-                      borderColor: 'rgba(239, 68, 68, 0.4)',
-                      color: '#ef4444',
-                      background: 'rgba(239, 68, 68, 0.08)',
-                      fontWeight: 600
-                    }
-                  : {}
-              }
-            >
-              <Flame size={13} color={mistakeCount > 0 ? '#ef4444' : 'currentColor'} />
-              <span>Mark Mistake {mistakeCount > 0 ? `(${mistakeCount})` : ''}</span>
-            </button>
+            <div style={{ position: 'relative' }} ref={mistakeMenuRef}>
+              <button
+                className={`action-btn ${isWeakSpot ? 'warning' : ''}`}
+                onClick={() => setShowMistakeMenu(!showMistakeMenu)}
+                title={isWeakSpot ? 'Marked as Weak Spot. Click to edit or remove.' : 'Mark a mistake on Ayah ' + ayah.numberInSurah}
+                id={`ayah-mark-mistake-btn-${ayah.numberInSurah}`}
+                style={
+                  isWeakSpot
+                    ? {
+                        borderColor: 'rgba(239, 68, 68, 0.5)',
+                        color: '#ef4444',
+                        background: 'rgba(239, 68, 68, 0.12)',
+                        fontWeight: 600
+                      }
+                    : {}
+                }
+              >
+                <Flame size={13} color={isWeakSpot ? '#ef4444' : 'currentColor'} />
+                <span>
+                  {isWeakSpot
+                    ? weakSpotItem?.mistakeType === 'word_highlight'
+                      ? 'Word Slip'
+                      : 'Memory Gap'
+                    : 'Mark Mistake'}
+                </span>
+              </button>
+
+              {/* Mistake Options Popover */}
+              {showMistakeMenu && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    marginTop: '0.4rem',
+                    zIndex: 35,
+                    background: 'var(--bg-surface-elevated)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: 'var(--shadow-lg)',
+                    padding: '0.65rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.45rem',
+                    minWidth: '220px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                    Mark Mistake Type:
+                  </div>
+
+                  {/* Option 1: Highlight Word(s) */}
+                  <button
+                    type="button"
+                    className="action-btn"
+                    onClick={() => {
+                      setShowMistakeMenu(false);
+                      onMarkMistake(ayah, 'word_highlight');
+                    }}
+                    style={{ width: '100%', justifyContent: 'flex-start', gap: '0.5rem', padding: '0.4rem 0.6rem' }}
+                    id={`btn-mark-word-slip-${ayah.numberInSurah}`}
+                  >
+                    <Highlighter size={14} color="#ef4444" />
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.82rem' }}>Highlight Word(s)</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Tap exact words in Arabic text</div>
+                    </div>
+                  </button>
+
+                  {/* Option 2: Memory Gap / Forgot Ayah */}
+                  <button
+                    type="button"
+                    className="action-btn"
+                    onClick={() => {
+                      setShowMistakeMenu(false);
+                      onMarkMistake(ayah, 'memory_gap');
+                    }}
+                    style={{ width: '100%', justifyContent: 'flex-start', gap: '0.5rem', padding: '0.4rem 0.6rem' }}
+                    id={`btn-mark-memory-gap-${ayah.numberInSurah}`}
+                  >
+                    <Brain size={14} color="#eab308" />
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.82rem' }}>Forgot Ayah / Memory Gap</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Entire verse forgotten</div>
+                    </div>
+                  </button>
+
+                  {/* Remove Weak Spot option if already marked */}
+                  {isWeakSpot && onRemoveWeakSpot && (
+                    <button
+                      type="button"
+                      className="action-btn danger"
+                      onClick={() => {
+                        setShowMistakeMenu(false);
+                        onRemoveWeakSpot(ayah);
+                      }}
+                      style={{ width: '100%', justifyContent: 'flex-start', gap: '0.5rem', marginTop: '0.2rem', padding: '0.4rem 0.6rem' }}
+                      id={`btn-remove-weak-spot-${ayah.numberInSurah}`}
+                    >
+                      <Trash2 size={14} />
+                      <span>Remove Weak Spot</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Set Range Start & End Buttons */}
@@ -377,9 +471,36 @@ export function AyahCard({
         </div>
       </div>
 
-      {/* Large Arabic Uthmani Text */}
+      {/* Arabic Uthmani Text (With Interactive Word Highlighting when Weak Spot) */}
       <div className="arabic-quran-text ayah-arabic">
-        {ayah.text}
+        {isWeakSpot && ayah.text ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '0.35rem' }}>
+            {ayah.text.split(' ').map((word, wIdx) => {
+              const isWordHighlighted = Array.isArray(weakSpotItem?.highlightedWords) && weakSpotItem.highlightedWords.includes(wIdx);
+              return (
+                <span
+                  key={wIdx}
+                  onClick={() => onToggleWordHighlight && onToggleWordHighlight(ayah, wIdx)}
+                  title="Click to toggle mistake highlight on this word"
+                  style={{
+                    cursor: 'pointer',
+                    padding: '0 0.25rem',
+                    borderRadius: 'var(--radius-sm)',
+                    background: isWordHighlighted ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
+                    color: isWordHighlighted ? '#ef4444' : 'inherit',
+                    borderBottom: isWordHighlighted ? '2px solid #ef4444' : '2px solid transparent',
+                    fontWeight: isWordHighlighted ? 700 : 'normal',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {word}
+                </span>
+              );
+            })}
+          </div>
+        ) : (
+          ayah.text
+        )}
       </div>
 
       {/* English Translation */}

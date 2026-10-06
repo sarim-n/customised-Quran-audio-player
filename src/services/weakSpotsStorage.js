@@ -32,32 +32,26 @@ function saveWeakSpotsMap(map) {
 }
 
 /**
- * Get all weak spots as a sorted array
- * Default sort: mistakeCount DESC, lastMarked DESC
+ * Get all weak spots as a sorted array (newest lastMarked first)
  * @returns {Array<Object>}
  */
 export function getWeakSpots() {
   const map = getWeakSpotsMap();
   const list = Object.values(map);
-  return list.sort((a, b) => {
-    if (b.mistakeCount !== a.mistakeCount) {
-      return b.mistakeCount - a.mistakeCount;
-    }
-    return new Date(b.lastMarked) - new Date(a.lastMarked);
-  });
+  return list.sort((a, b) => new Date(b.lastMarked) - new Date(a.lastMarked));
 }
 
 /**
- * Get mistake count for a specific Ayah
+ * Check if an Ayah is marked as a weak spot
  * @param {number} surahNumber
  * @param {number} numberInSurah
- * @returns {number}
+ * @returns {boolean}
  */
-export function getMistakeCount(surahNumber, numberInSurah) {
-  if (!surahNumber || !numberInSurah) return 0;
+export function isWeakSpot(surahNumber, numberInSurah) {
+  if (!surahNumber || !numberInSurah) return false;
   const map = getWeakSpotsMap();
   const id = `${surahNumber}:${numberInSurah}`;
-  return map[id] ? map[id].mistakeCount : 0;
+  return Boolean(map[id]);
 }
 
 /**
@@ -74,12 +68,14 @@ export function getWeakSpotItem(surahNumber, numberInSurah) {
 }
 
 /**
- * Mark a mistake on an Ayah (creates or increments count)
+ * Mark a mistake on an Ayah (Single status: either Memory Gap or Word Slip)
  * @param {Object} ayah - Ayah object with surahNumber, numberInSurah, text, translation, juz, ruku
- * @param {Object} [surahMeta] - Surah metadata object with englishName, name, etc.
- * @returns {Object} Updated weak spot item
+ * @param {Object} [surahMeta] - Surah metadata object
+ * @param {'memory_gap'|'word_highlight'} [mistakeType='memory_gap']
+ * @param {Array<number>} [initialHighlightedWords=[]]
+ * @returns {Object} Weak spot item
  */
-export function markMistake(ayah, surahMeta = null) {
+export function markMistake(ayah, surahMeta = null, mistakeType = 'memory_gap', initialHighlightedWords = []) {
   if (!ayah || !ayah.surahNumber || !ayah.numberInSurah) return null;
 
   const map = getWeakSpotsMap();
@@ -87,8 +83,6 @@ export function markMistake(ayah, surahMeta = null) {
   const now = new Date().toISOString();
 
   const existing = map[id];
-  const newCount = existing ? existing.mistakeCount + 1 : 1;
-
   const surahEnglishName = ayah.surahEnglishName || surahMeta?.englishName || `Surah ${ayah.surahNumber}`;
   const surahArabicName = ayah.surahName || surahMeta?.name || '';
   const juzNumber = ayah.juz || surahMeta?.juz || 1;
@@ -103,8 +97,8 @@ export function markMistake(ayah, surahMeta = null) {
     ruku: ayah.ruku || null,
     text: ayah.text || existing?.text || '',
     translation: ayah.translation || existing?.translation || '',
-    mistakeCount: newCount,
-    highlightedWords: existing?.highlightedWords || [],
+    mistakeType: mistakeType || existing?.mistakeType || 'memory_gap',
+    highlightedWords: initialHighlightedWords.length > 0 ? initialHighlightedWords : (existing?.highlightedWords || []),
     lastMarked: now,
     createdAt: existing ? existing.createdAt : now
   };
@@ -116,17 +110,27 @@ export function markMistake(ayah, surahMeta = null) {
 
 /**
  * Toggle word highlight index for an Ayah text
+ * Automatically sets mistakeType to 'word_highlight'
  * @param {number} surahNumber
  * @param {number} numberInSurah
  * @param {number} wordIndex
+ * @param {Object} [ayah] - Optional ayah object if not yet saved
+ * @param {Object} [surahMeta] - Optional surahMeta
  * @returns {Array<number>} Updated array of highlighted word indices
  */
-export function toggleWordHighlight(surahNumber, numberInSurah, wordIndex) {
+export function toggleWordHighlight(surahNumber, numberInSurah, wordIndex, ayah = null, surahMeta = null) {
   const map = getWeakSpotsMap();
   const id = `${surahNumber}:${numberInSurah}`;
-  if (!map[id]) return [];
+  let item = map[id];
 
-  const currentList = Array.isArray(map[id].highlightedWords) ? [...map[id].highlightedWords] : [];
+  if (!item && ayah) {
+    item = markMistake(ayah, surahMeta, 'word_highlight', [wordIndex]);
+    return item.highlightedWords;
+  }
+
+  if (!item) return [];
+
+  const currentList = Array.isArray(item.highlightedWords) ? [...item.highlightedWords] : [];
   const idx = currentList.indexOf(wordIndex);
   if (idx !== -1) {
     currentList.splice(idx, 1);
@@ -134,28 +138,15 @@ export function toggleWordHighlight(surahNumber, numberInSurah, wordIndex) {
     currentList.push(wordIndex);
   }
 
-  map[id].highlightedWords = currentList;
+  item.highlightedWords = currentList;
+  if (currentList.length > 0) {
+    item.mistakeType = 'word_highlight';
+  }
+  item.lastMarked = new Date().toISOString();
+
+  map[id] = item;
   saveWeakSpotsMap(map);
   return currentList;
-}
-
-/**
- * Decrement mistake count for an Ayah (removes if count becomes 0)
- * @param {number} surahNumber
- * @param {number} numberInSurah
- */
-export function decrementMistake(surahNumber, numberInSurah) {
-  const map = getWeakSpotsMap();
-  const id = `${surahNumber}:${numberInSurah}`;
-  if (!map[id]) return;
-
-  if (map[id].mistakeCount <= 1) {
-    delete map[id];
-  } else {
-    map[id].mistakeCount -= 1;
-    map[id].lastMarked = new Date().toISOString();
-  }
-  saveWeakSpotsMap(map);
 }
 
 /**

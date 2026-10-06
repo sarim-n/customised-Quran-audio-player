@@ -13,7 +13,15 @@ import { fetchSurah, fetchJuz } from './services/quranApi';
 import { SURAHS, INDOPAK_JUZ_METADATA, MADANI_JUZ_METADATA } from './data/quranMeta';
 import { useQuranAudio } from './hooks/useQuranAudio';
 import { isItemDownloaded } from './services/offlineStorage';
-import { getWeakSpotsCount, getWeakSpotsCountForScope, getMistakeCount, markMistake } from './services/weakSpotsStorage';
+import {
+  getWeakSpotsCount,
+  getWeakSpotsCountForScope,
+  isWeakSpot,
+  getWeakSpotItem,
+  markMistake,
+  removeWeakSpot,
+  toggleWordHighlight
+} from './services/weakSpotsStorage';
 import { AlertCircle, RefreshCw, Loader2, Target, CheckCircle2, DownloadCloud, Flame } from 'lucide-react';
 
 // Parse initial navigation from URL hash or localStorage so reloads preserve current Surah/Juz
@@ -217,16 +225,37 @@ export function App() {
     }, 3000);
   }, []);
 
-  // Mark mistake on an Ayah with one click
-  const handleMarkMistake = useCallback((ayahToMark) => {
+  // Mark mistake on an Ayah with mistake type ('memory_gap' or 'word_highlight')
+  const handleMarkMistake = useCallback((ayahToMark, mistakeType = 'memory_gap') => {
     if (!ayahToMark) return;
-    const updated = markMistake(ayahToMark, currentSurahMeta);
+    const updated = markMistake(ayahToMark, currentSurahMeta, mistakeType);
     setWeakSpotsVersion(v => v + 1);
     setWeakSpotsCount(getWeakSpotsCount());
     if (updated) {
-      showToast(`Marked mistake for Surah ${updated.surahEnglishName} Ayah ${updated.numberInSurah} (Total: ${updated.mistakeCount})`);
+      if (mistakeType === 'word_highlight') {
+        showToast(`Marked Word Slip for Ayah ${updated.numberInSurah}. Tap words to highlight exact spot!`);
+      } else {
+        showToast(`Marked Memory Gap for Surah ${updated.surahEnglishName} Ayah ${updated.numberInSurah}`);
+      }
     }
   }, [currentSurahMeta, showToast]);
+
+  // Remove weak spot from storage
+  const handleRemoveWeakSpot = useCallback((ayahToRemove) => {
+    if (!ayahToRemove) return;
+    removeWeakSpot(ayahToRemove.surahNumber, ayahToRemove.numberInSurah);
+    setWeakSpotsVersion(v => v + 1);
+    setWeakSpotsCount(getWeakSpotsCount());
+    showToast(`Removed Ayah ${ayahToRemove.numberInSurah} from weak spots`);
+  }, [showToast]);
+
+  // Toggle word highlight on Ayah text
+  const handleToggleWordHighlight = useCallback((ayahToHighlight, wordIdx) => {
+    if (!ayahToHighlight) return;
+    toggleWordHighlight(ayahToHighlight.surahNumber, ayahToHighlight.numberInSurah, wordIdx, ayahToHighlight, currentSurahMeta);
+    setWeakSpotsVersion(v => v + 1);
+    setWeakSpotsCount(getWeakSpotsCount());
+  }, [currentSurahMeta]);
 
   // Start targeted triplet revision session (Prev -> Weak -> Next)
   const handleReviseTriplet = useCallback((spot) => {
@@ -820,7 +849,10 @@ export function App() {
                     onSetRangeEnd={() => handleSetRangeEnd(ayah)}
                     onClearRange={handleClearRange}
                     onMarkMistake={handleMarkMistake}
-                    mistakeCount={getMistakeCount(ayah.surahNumber, ayah.numberInSurah)}
+                    onRemoveWeakSpot={handleRemoveWeakSpot}
+                    onToggleWordHighlight={handleToggleWordHighlight}
+                    isWeakSpot={isWeakSpot(ayah.surahNumber, ayah.numberInSurah)}
+                    weakSpotItem={getWeakSpotItem(ayah.surahNumber, ayah.numberInSurah)}
                   />
                 </React.Fragment>
               );
@@ -858,7 +890,9 @@ export function App() {
         onSeekOverall={seekToAyah}
         onOpenReciterModal={() => setIsReciterModalOpen(true)}
         onMarkMistake={handleMarkMistake}
-        mistakeCount={currentAyah ? getMistakeCount(currentAyah.surahNumber, currentAyah.numberInSurah) : 0}
+        onRemoveWeakSpot={handleRemoveWeakSpot}
+        isWeakSpot={currentAyah ? isWeakSpot(currentAyah.surahNumber, currentAyah.numberInSurah) : false}
+        weakSpotItem={currentAyah ? getWeakSpotItem(currentAyah.surahNumber, currentAyah.numberInSurah) : null}
       />
 
       {/* Surah Selector Modal */}

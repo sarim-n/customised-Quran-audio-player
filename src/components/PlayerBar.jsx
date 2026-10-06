@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Pause, Square, SkipBack, SkipForward, Volume2, User, Loader2, Repeat, RotateCcw, Layers, Flame } from 'lucide-react';
+import { Play, Pause, Square, SkipBack, SkipForward, Volume2, User, Loader2, Repeat, RotateCcw, Layers, Flame, Highlighter, Brain, Trash2 } from 'lucide-react';
 import { PLAYBACK_SPEEDS } from '../data/quranMeta';
 
 export function PlayerBar({
@@ -30,8 +30,11 @@ export function PlayerBar({
   onSeekOverall,
   onOpenReciterModal,
   onMarkMistake,
-  mistakeCount = 0
+  onRemoveWeakSpot,
+  isWeakSpot = false,
+  weakSpotItem = null
 }) {
+  const [showMistakeMenu, setShowMistakeMenu] = useState(false);
   const formatTime = (seconds) => {
     if (!seconds || isNaN(seconds)) return '0:00';
     const m = Math.floor(seconds / 60);
@@ -197,28 +200,106 @@ export function PlayerBar({
                     </span>
 
                     {onMarkMistake && (
-                      <button
-                        onClick={() => onMarkMistake(currentAyah)}
-                        title={mistakeCount > 0 ? `Marked mistake ${mistakeCount} times. Tap to increment.` : `Mark mistake on Ayah ${currentAyah.numberInSurah}`}
-                        id="player-bar-mark-mistake-btn"
-                        style={{
-                          background: mistakeCount > 0 ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-subtle)',
-                          color: mistakeCount > 0 ? '#ef4444' : 'var(--text-subtle)',
-                          border: mistakeCount > 0 ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-subtle)',
-                          borderRadius: 'var(--radius-full)',
-                          padding: '0.15rem 0.45rem',
-                          fontSize: '0.72rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.2rem',
-                          marginLeft: '0.25rem'
-                        }}
-                      >
-                        <Flame size={12} color={mistakeCount > 0 ? '#ef4444' : 'currentColor'} />
-                        <span>Mistake {mistakeCount > 0 ? `(${mistakeCount})` : ''}</span>
-                      </button>
+                      <div style={{ position: 'relative' }}>
+                        <button
+                          onClick={() => setShowMistakeMenu(!showMistakeMenu)}
+                          title={isWeakSpot ? 'Marked as Weak Spot. Click to change type or remove.' : `Mark mistake on Ayah ${currentAyah.numberInSurah}`}
+                          id="player-bar-mark-mistake-btn"
+                          style={{
+                            background: isWeakSpot ? 'rgba(239, 68, 68, 0.18)' : 'var(--bg-subtle)',
+                            color: isWeakSpot ? '#ef4444' : 'var(--text-subtle)',
+                            border: isWeakSpot ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-subtle)',
+                            borderRadius: 'var(--radius-full)',
+                            padding: '0.15rem 0.55rem',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            marginLeft: '0.25rem'
+                          }}
+                        >
+                          <Flame size={12} color={isWeakSpot ? '#ef4444' : 'currentColor'} />
+                          <span>
+                            {isWeakSpot
+                              ? weakSpotItem?.mistakeType === 'word_highlight'
+                                ? 'Word Slip'
+                                : 'Memory Gap'
+                              : 'Mistake'}
+                          </span>
+                        </button>
+
+                        {/* PlayerBar Mistake Options Popover */}
+                        {showMistakeMenu && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              bottom: '100%',
+                              left: 0,
+                              marginBottom: '0.4rem',
+                              zIndex: 50,
+                              background: 'var(--bg-surface-elevated)',
+                              border: '1px solid var(--border-subtle)',
+                              borderRadius: 'var(--radius-md)',
+                              boxShadow: 'var(--shadow-lg)',
+                              padding: '0.6rem',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '0.4rem',
+                              minWidth: '210px'
+                            }}
+                          >
+                            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                              Mark Mistake Type:
+                            </div>
+
+                            <button
+                              type="button"
+                              className="action-btn"
+                              onClick={() => {
+                                setShowMistakeMenu(false);
+                                onMarkMistake(currentAyah, 'word_highlight');
+                              }}
+                              style={{ width: '100%', justifyContent: 'flex-start', gap: '0.45rem', padding: '0.35rem 0.55rem' }}
+                              id="player-btn-mark-word-slip"
+                            >
+                              <Highlighter size={13} color="#ef4444" />
+                              <span style={{ fontSize: '0.8rem' }}>Highlight Word(s)</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className="action-btn"
+                              onClick={() => {
+                                setShowMistakeMenu(false);
+                                onMarkMistake(currentAyah, 'memory_gap');
+                              }}
+                              style={{ width: '100%', justifyContent: 'flex-start', gap: '0.45rem', padding: '0.35rem 0.55rem' }}
+                              id="player-btn-mark-memory-gap"
+                            >
+                              <Brain size={13} color="#eab308" />
+                              <span style={{ fontSize: '0.8rem' }}>Forgot Ayah / Memory Gap</span>
+                            </button>
+
+                            {isWeakSpot && onRemoveWeakSpot && (
+                              <button
+                                type="button"
+                                className="action-btn danger"
+                                onClick={() => {
+                                  setShowMistakeMenu(false);
+                                  onRemoveWeakSpot(currentAyah);
+                                }}
+                                style={{ width: '100%', justifyContent: 'flex-start', gap: '0.45rem', marginTop: '0.15rem', padding: '0.35rem 0.55rem' }}
+                                id="player-btn-remove-weak-spot"
+                              >
+                                <Trash2 size={13} />
+                                <span style={{ fontSize: '0.8rem' }}>Remove Weak Spot</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </>
                 ) : (
