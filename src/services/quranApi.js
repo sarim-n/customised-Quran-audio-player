@@ -283,17 +283,31 @@ function cleanAyahText(text, surahNumber, numberInSurah) {
 import taj16LineMapping from '../data/taj16LineMapping.json';
 
 const mushafCache = new Map();
+const surahToTajPageMap = new Map();
+const juzToTajPageMap = new Map();
 const ayahToTajPageMap = new Map();
 
-// Populate fast reverse lookup index: `${surahNumber}:${numberInSurah}` -> Taj Mushaf Page Number
+// Populate fast reverse lookup indices for Surah, Juz, and Verse -> Taj Mushaf Page Number
 try {
-  for (const [pStr, pData] of Object.entries(taj16LineMapping)) {
-    const pNum = parseInt(pStr, 10);
-    if (pData && pData.lines) {
-      for (const lineWords of Object.values(pData.lines)) {
-        for (const w of lineWords) {
-          if (w && w.verseKey && !ayahToTajPageMap.has(w.verseKey)) {
-            ayahToTajPageMap.set(w.verseKey, pNum);
+  for (let p = 1; p <= 604; p++) {
+    const pStr = String(p);
+    const pData = taj16LineMapping[pStr];
+    if (pData) {
+      if (pData.primaryJuz && !juzToTajPageMap.has(pData.primaryJuz)) {
+        juzToTajPageMap.set(pData.primaryJuz, p);
+      }
+
+      if (pData.lines) {
+        for (const lineWords of Object.values(pData.lines)) {
+          for (const w of lineWords) {
+            if (w) {
+              if (w.surahNumber && !surahToTajPageMap.has(w.surahNumber)) {
+                surahToTajPageMap.set(w.surahNumber, p);
+              }
+              if (w.verseKey && !ayahToTajPageMap.has(w.verseKey)) {
+                ayahToTajPageMap.set(w.verseKey, p);
+              }
+            }
           }
         }
       }
@@ -305,11 +319,11 @@ try {
 
 /**
  * Fetch 16-line Indo-Pak Taj Company Mushaf page with word and line mappings
- * @param {number} pageNumber (1-548 for 16-line Mushaf)
+ * @param {number} pageNumber (1-604 for 16-line Mushaf)
  * @returns {Promise<Object>}
  */
 export async function fetchMushafPage(pageNumber) {
-  const page = Math.max(1, Math.min(548, Number(pageNumber) || 1));
+  const page = Math.max(1, Math.min(604, Number(pageNumber) || 1));
   const cacheKey = `taj16_page_${page}`;
 
   if (mushafCache.has(cacheKey)) {
@@ -337,7 +351,7 @@ export async function fetchMushafPage(pageNumber) {
 
     const result = {
       pageNumber: page,
-      totalPages: 548,
+      totalPages: 604,
       primarySurah,
       primaryJuz: localPage.primaryJuz || 1,
       surahNumbers: localPage.surahNumbers || [localPage.primarySurah],
@@ -354,6 +368,33 @@ export async function fetchMushafPage(pageNumber) {
 }
 
 /**
+ * Get 16-line Indo-Pak Taj Company Mushaf starting page for a Surah
+ * @param {number} surahNumber (1-114)
+ * @returns {number} pageNumber
+ */
+export function getMushafPageForSurah(surahNumber) {
+  const sNum = Number(surahNumber);
+  if (surahToTajPageMap.has(sNum)) {
+    return surahToTajPageMap.get(sNum);
+  }
+  const meta = SURAHS.find(s => s.number === sNum);
+  return meta?.mushafPage || 1;
+}
+
+/**
+ * Get 16-line Indo-Pak Taj Company Mushaf starting page for a Juz (1-30)
+ * @param {number} juzNumber (1-30)
+ * @returns {number} pageNumber
+ */
+export function getMushafPageForJuz(juzNumber) {
+  const jNum = Number(juzNumber);
+  if (juzToTajPageMap.has(jNum)) {
+    return juzToTajPageMap.get(jNum);
+  }
+  return 1;
+}
+
+/**
  * Get 16-line Indo-Pak Taj Company Mushaf page number for a given Ayah (Surah:Ayah)
  * @param {number} surahNumber
  * @param {number} numberInSurah
@@ -365,13 +406,13 @@ export async function getMushafPageForAyah(surahNumber, numberInSurah) {
     return ayahToTajPageMap.get(key);
   }
 
-  // Fallback: Check if Surah metadata has a mapped starting page
-  const meta = SURAHS.find(s => s.number === Number(surahNumber));
-  if (meta && meta.mushafPage) {
-    return meta.mushafPage;
+  const sNum = Number(surahNumber);
+  if (surahToTajPageMap.has(sNum)) {
+    return surahToTajPageMap.get(sNum);
   }
 
   return 1;
 }
+
 
 

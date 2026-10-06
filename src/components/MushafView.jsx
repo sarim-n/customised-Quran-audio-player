@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Flame, Volume2, Play, Pause, Bookmark } from 'lucide-react';
-import { fetchMushafPage } from '../services/quranApi';
+import { ChevronLeft, ChevronRight, Flame, Volume2, Play, Pause, Bookmark, Layers, BookOpen } from 'lucide-react';
+import { fetchMushafPage, getMushafPageForSurah, getMushafPageForJuz } from '../services/quranApi';
 import { getWeakSpotsMap } from '../services/weakSpotsStorage';
-import { SURAHS } from '../data/quranMeta';
+import { SURAHS, INDOPAK_JUZ_METADATA } from '../data/quranMeta';
 
 export function MushafView({
   pageNumber = 1,
@@ -58,13 +58,13 @@ export function MushafView({
   };
 
   const handleNextPage = () => {
-    if (pageNumber < 548) onPageChange(pageNumber + 1);
+    if (pageNumber < 604) onPageChange(pageNumber + 1);
   };
 
   const handlePageInputSubmit = (e) => {
     e.preventDefault();
     const p = parseInt(inputPage, 10);
-    if (!isNaN(p) && p >= 1 && p <= 548) {
+    if (!isNaN(p) && p >= 1 && p <= 604) {
       onPageChange(p);
     } else {
       setInputPage(pageNumber.toString());
@@ -103,7 +103,7 @@ export function MushafView({
 
   return (
     <div className="mushaf-view-container" style={{ maxWidth: '840px', margin: '0 auto', padding: '0.5rem 0.5rem 2rem 0.5rem' }}>
-      {/* Top Pagination Toolbar */}
+      {/* Top Pagination & Quick Navigation Toolbar */}
       <div
         className="mushaf-toolbar"
         style={{
@@ -119,7 +119,8 @@ export function MushafView({
           flexWrap: 'wrap'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        {/* Prev / Next Page Buttons & Page Direct Input */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
           <button
             className="action-btn"
             onClick={handlePrevPage}
@@ -136,7 +137,7 @@ export function MushafView({
             <input
               type="number"
               min="1"
-              max="548"
+              max="604"
               value={inputPage}
               onChange={e => setInputPage(e.target.value)}
               style={{
@@ -151,13 +152,13 @@ export function MushafView({
               }}
               id="input-mushaf-page-number"
             />
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ 548</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ 604</span>
           </form>
 
           <button
             className="action-btn"
             onClick={handleNextPage}
-            disabled={pageNumber >= 548}
+            disabled={pageNumber >= 604}
             title="Next Page (Taj Company 16-Line)"
             id="btn-mushaf-next-page"
           >
@@ -166,27 +167,53 @@ export function MushafView({
           </button>
         </div>
 
-        {/* Quick Surah jump selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <select
-            className="surah-select"
-            value={pageData?.primarySurah?.number || 1}
-            onChange={e => {
-              const sNum = parseInt(e.target.value, 10);
-              const meta = SURAHS.find(s => s.number === sNum);
-              if (meta && meta.mushafPage) {
-                onPageChange(meta.mushafPage);
-              }
-            }}
-            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-md)' }}
-            id="select-mushaf-surah"
-          >
-            {SURAHS.map(s => (
-              <option key={s.number} value={s.number}>
-                Surah {s.number}. {s.englishName} ({s.name})
-              </option>
-            ))}
-          </select>
+        {/* Quick Surah & Juz Navigation Dropdowns */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* Juz / Para Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Juz:</span>
+            <select
+              className="surah-select"
+              value={pageData?.primaryJuz || 1}
+              onChange={e => {
+                const jNum = parseInt(e.target.value, 10);
+                const p = getMushafPageForJuz(jNum);
+                onPageChange(p);
+              }}
+              style={{ fontSize: '0.8rem', padding: '0.25rem 0.4rem', borderRadius: 'var(--radius-md)' }}
+              id="select-mushaf-juz"
+              title="Jump to 16-Line Mushaf starting page for selected Juz/Para"
+            >
+              {(INDOPAK_JUZ_METADATA || []).map(j => (
+                <option key={j.id} value={j.id}>
+                  Juz {j.id} ({j.transliteration} - {j.name})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Surah Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Surah:</span>
+            <select
+              className="surah-select"
+              value={pageData?.primarySurah?.number || 1}
+              onChange={e => {
+                const sNum = parseInt(e.target.value, 10);
+                const p = getMushafPageForSurah(sNum);
+                onPageChange(p);
+              }}
+              style={{ fontSize: '0.8rem', padding: '0.25rem 0.4rem', borderRadius: 'var(--radius-md)' }}
+              id="select-mushaf-surah"
+              title="Jump to 16-Line Mushaf starting page for selected Surah"
+            >
+              {SURAHS.map(s => (
+                <option key={s.number} value={s.number}>
+                  {s.number}. {s.englishName} ({s.name})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -358,10 +385,10 @@ export function MushafView({
         </button>
 
         <div>
-          Taj Company 16-Line • Page {pageNumber} of 548
+          Taj Company 16-Line • Page {pageNumber} of 604
         </div>
 
-        <button className="action-btn" onClick={handleNextPage} disabled={pageNumber >= 548}>
+        <button className="action-btn" onClick={handleNextPage} disabled={pageNumber >= 604}>
           <span>Page {pageNumber + 1}</span>
           <ChevronRight size={15} />
         </button>
