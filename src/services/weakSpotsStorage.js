@@ -32,13 +32,18 @@ function saveWeakSpotsMap(map) {
 }
 
 /**
- * Get all weak spots as a sorted array (newest lastMarked first)
+ * Get all weak spots as a sorted array (ascending Quranic order: Surah -> Ayah)
  * @returns {Array<Object>}
  */
 export function getWeakSpots() {
   const map = getWeakSpotsMap();
   const list = Object.values(map);
-  return list.sort((a, b) => new Date(b.lastMarked) - new Date(a.lastMarked));
+  return list.sort((a, b) => {
+    if (a.surahNumber !== b.surahNumber) {
+      return a.surahNumber - b.surahNumber;
+    }
+    return a.numberInSurah - b.numberInSurah;
+  });
 }
 
 /**
@@ -140,7 +145,9 @@ export function toggleWordHighlight(surahNumber, numberInSurah, wordIndex, ayah 
 
   item.highlightedWords = currentList;
   if (currentList.length > 0) {
-    item.mistakeType = 'word_highlight';
+    if (!item.mistakeType || item.mistakeType === 'word_highlight') {
+      item.mistakeType = 'word_highlight';
+    }
   }
   item.lastMarked = new Date().toISOString();
 

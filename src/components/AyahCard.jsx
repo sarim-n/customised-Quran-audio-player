@@ -34,6 +34,7 @@ export function AyahCard({
   const [showMistakeMenu, setShowMistakeMenu] = useState(false);
   const [isCustomActive, setIsCustomActive] = useState(false);
   const [customRepeatValue, setCustomRepeatValue] = useState('');
+  const [isEditingHighlights, setIsEditingHighlights] = useState(false);
 
   const repeatMenuRef = useRef(null);
   const mistakeMenuRef = useRef(null);
@@ -377,7 +378,10 @@ export function AyahCard({
                     className="action-btn"
                     onClick={() => {
                       setShowMistakeMenu(false);
-                      onMarkMistake(ayah, 'word_highlight');
+                      if (!isWeakSpot) {
+                        onMarkMistake(ayah, 'word_highlight');
+                      }
+                      setIsEditingHighlights(true);
                     }}
                     style={{ width: '100%', justifyContent: 'flex-start', gap: '0.5rem', padding: '0.4rem 0.6rem' }}
                     id={`btn-mark-word-slip-${ayah.numberInSurah}`}
@@ -396,6 +400,7 @@ export function AyahCard({
                     onClick={() => {
                       setShowMistakeMenu(false);
                       onMarkMistake(ayah, 'memory_gap');
+                      setIsEditingHighlights(false);
                     }}
                     style={{ width: '100%', justifyContent: 'flex-start', gap: '0.5rem', padding: '0.4rem 0.6rem' }}
                     id={`btn-mark-memory-gap-${ayah.numberInSurah}`}
@@ -414,6 +419,7 @@ export function AyahCard({
                       className="action-btn danger"
                       onClick={() => {
                         setShowMistakeMenu(false);
+                        setIsEditingHighlights(false);
                         onRemoveWeakSpot(ayah);
                       }}
                       style={{ width: '100%', justifyContent: 'flex-start', gap: '0.5rem', marginTop: '0.2rem', padding: '0.4rem 0.6rem' }}
@@ -471,7 +477,36 @@ export function AyahCard({
         </div>
       </div>
 
-      {/* Arabic Uthmani Text (With Interactive Word Highlighting when Weak Spot) */}
+      {/* Highlight Mode Banner */}
+      {isEditingHighlights && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justify: 'space-between',
+            padding: '0.4rem 0.75rem',
+            background: 'rgba(239, 68, 68, 0.12)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            marginBottom: '0.5rem'
+          }}
+        >
+          <span style={{ fontSize: '0.78rem', color: '#ef4444', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <Highlighter size={14} />
+            Tap Arabic words below to highlight mistake locations:
+          </span>
+          <button
+            className="action-btn primary"
+            onClick={() => setIsEditingHighlights(false)}
+            style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
+            id={`btn-done-highlighting-${ayah.numberInSurah}`}
+          >
+            Done Highlighting
+          </button>
+        </div>
+      )}
+
+      {/* Arabic Uthmani Text (With Interactive Word Highlighting when Weak Spot & Editing) */}
       <div className="arabic-quran-text ayah-arabic">
         {isWeakSpot && ayah.text ? (
           ayah.text.split(' ').map((word, wIdx) => {
@@ -479,10 +514,10 @@ export function AyahCard({
             return (
               <span
                 key={wIdx}
-                onClick={() => onToggleWordHighlight && onToggleWordHighlight(ayah, wIdx)}
-                title="Click to toggle mistake highlight on this word"
+                onClick={isEditingHighlights ? () => onToggleWordHighlight && onToggleWordHighlight(ayah, wIdx) : undefined}
+                title={isEditingHighlights ? "Click to toggle mistake highlight on this word" : undefined}
                 style={{
-                  cursor: 'pointer',
+                  cursor: isEditingHighlights ? 'pointer' : 'default',
                   padding: '0 0.15rem',
                   borderRadius: 'var(--radius-sm)',
                   background: isWordHighlighted ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
