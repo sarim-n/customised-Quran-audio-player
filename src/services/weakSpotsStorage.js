@@ -6,7 +6,7 @@ const STORAGE_KEY = 'quran_weak_spots_v1';
  * Get all weak spots mapped by id
  * @returns {Record<string, Object>}
  */
-function getWeakSpotsMap() {
+export function getWeakSpotsMap() {
   if (typeof window === 'undefined') return {};
   try {
     const raw = localStorage.getItem(STORAGE_KEY);

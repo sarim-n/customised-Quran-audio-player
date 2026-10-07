@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Layers, User, Sun, Moon, Monitor, Globe, Target, Download, DownloadCloud, CheckCircle2, Flame } from 'lucide-react';
+import { BookOpen, Layers, User, Sun, Moon, Monitor, Globe, Target, Download, DownloadCloud, CheckCircle2, Flame, Sparkles } from 'lucide-react';
 import { promptPwaInstall, isPwaInstalled } from '../pwa';
 import { isItemDownloaded } from '../services/offlineStorage';
 
@@ -20,6 +20,8 @@ export function Header({
   onOpenWeakSpotsModal,
   weakSpotsCount = 0,
   weakSpotsScopeCount = 0,
+  onSelectMushaf7,
+  onSelectTaj,
   autoScroll,
   onToggleAutoScroll,
   onShowToast
@@ -118,6 +120,30 @@ export function Header({
           >
             <Layers size={16} />
             <span>{viewMode === 'juz' ? `Juz ${currentJuz}` : '30 Juz'}</span>
+          </button>
+
+          {/* Authentic Quran Foundation 16-Line Mode Button */}
+          <button
+            className={`action-btn ${viewMode === 'mushaf7' ? 'primary' : ''}`}
+            onClick={onSelectMushaf7}
+            title="Switch to authentic Quran Foundation IndoPak 16-Line Mushaf"
+            id="btn-select-mushaf7-view"
+            style={viewMode === 'mushaf7' ? { background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' } : {}}
+          >
+            <Sparkles size={16} />
+            <span>16-Line (QF)</span>
+          </button>
+
+          {/* Taj Company Scanned 16-Line Mode Button */}
+          <button
+            className={`action-btn ${viewMode === 'taj' ? 'primary' : ''}`}
+            onClick={onSelectTaj}
+            title="Switch to Taj Company 16-Line Scanned Mushaf"
+            id="btn-select-taj-view"
+            style={viewMode === 'taj' ? { background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' } : {}}
+          >
+            <BookOpen size={16} />
+            <span>Taj Mushaf</span>
           </button>
 
           {/* Go to Ayah Trigger Button (Permanently visible in sticky header) */}

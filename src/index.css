@@ -1,6 +1,16 @@
+/* Official Quran Foundation IndoPak Nastaleeq Font */
+@font-face {
+  font-family: 'QuranIndoPakNastaleeq';
+  src: url('/fonts/indopak-nastaleeq-waqf-lazim-v4.2.1.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Modern, Calm Quran Design System */
 :root {
   --font-arabic: 'Amiri', 'Scheherazade New', 'Traditional Arabic', serif;
+  --font-indopak: 'QuranIndoPakNastaleeq', 'Amiri', serif;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
   /* Light Theme */
