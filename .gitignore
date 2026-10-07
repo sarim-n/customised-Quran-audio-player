@@ -22,6 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
+# Environment & Scratch
 scratch/
 *.pdf
+.env
+.env.*
+!.env.example
