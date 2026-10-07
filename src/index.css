@@ -50,6 +50,25 @@
   --radius-md: 10px;
   --radius-lg: 16px;
   --radius-full: 9999px;
+
+  /* Mushaf 7 Responsive Layout & Typography */
+  --mushaf7-font-size: 1.85rem;
+  --mushaf7-line-height: 2.4rem;
+  --mushaf7-min-height: 2.55rem;
+  --mushaf7-card-padding: 1.25rem 1.5rem 1.5rem;
+  --mushaf7-frame-padding: 0.85rem 1.25rem 1rem;
+  --mushaf7-line-padding: 0.1rem 0.5rem;
+}
+
+@media (max-width: 680px) {
+  :root {
+    --mushaf7-font-size: clamp(0.92rem, 4.3vw, 1.85rem);
+    --mushaf7-line-height: clamp(1.35rem, 5.8vw, 2.4rem);
+    --mushaf7-min-height: clamp(1.45rem, 6.2vw, 2.55rem);
+    --mushaf7-card-padding: 0.5rem 0.5rem 0.75rem;
+    --mushaf7-frame-padding: 0.35rem 0.45rem 0.55rem;
+    --mushaf7-line-padding: 0.05rem 0.2rem;
+  }
 }
 
 [data-theme="dark"] {

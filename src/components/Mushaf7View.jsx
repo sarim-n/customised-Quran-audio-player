@@ -95,10 +95,11 @@ export function Mushaf7View({
 
           if (naturalWidth > 0) {
             const requiredScale = targetWidth / naturalWidth;
-            if (requiredScale > 1.0) {
+            if (requiredScale >= 1.0) {
               newScales[lineNum] = Math.min(requiredScale, MAX_SCALE_X);
             } else {
-              newScales[lineNum] = 1.0;
+              // Scale down on mobile if natural width exceeds target container width
+              newScales[lineNum] = Math.max(requiredScale, 0.70);
             }
           }
         }
@@ -325,9 +326,10 @@ export function Mushaf7View({
             border: '2px solid #b38b4d', // Ornamental Quranic gold outer border
             borderRadius: '12px',
             boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12)',
-            padding: '1.25rem 1.5rem 1.5rem',
+            padding: 'var(--mushaf7-card-padding, 1.25rem 1.5rem 1.5rem)',
             margin: '0 auto',
-            maxWidth: '680px'
+            maxWidth: '680px',
+            overflow: 'hidden'
           }}
           id={`mushaf7-page-${pageNumber}`}
         >
@@ -337,8 +339,9 @@ export function Mushaf7View({
             style={{
               border: '1px solid #d4af37',
               borderRadius: '8px',
-              padding: '0.85rem 1.25rem 1rem',
-              background: 'var(--bg-surface)'
+              padding: 'var(--mushaf7-frame-padding, 0.85rem 1.25rem 1rem)',
+              background: 'var(--bg-surface)',
+              overflow: 'hidden'
             }}
           >
             {/* Page Header Bar (Surah Name / Page Number / Juz Name) */}
@@ -394,13 +397,14 @@ export function Mushaf7View({
                       direction: 'rtl',
                       textAlign: 'right',
                       width: '100%',
-                      minHeight: '2.55rem',
-                      lineHeight: '2.4rem',
-                      padding: '0.1rem 0.5rem',
+                      minHeight: 'var(--mushaf7-min-height, 2.55rem)',
+                      lineHeight: 'var(--mushaf7-line-height, 2.4rem)',
+                      padding: 'var(--mushaf7-line-padding, 0.1rem 0.5rem)',
                       borderRadius: '6px',
                       background: lineHasPlayingWord ? 'rgba(5, 150, 105, 0.12)' : 'transparent',
                       transition: 'background 0.2s ease',
-                      position: 'relative'
+                      position: 'relative',
+                      overflow: 'hidden'
                     }}
                     title={firstWord ? `Line ${lineObj.lineNumber} • Ayah ${firstWord.verseKey}` : `Line ${lineObj.lineNumber}`}
                   >
@@ -418,10 +422,10 @@ export function Mushaf7View({
                         direction: 'rtl',
                         textAlign: 'right',
                         fontFamily: 'var(--font-indopak)',
-                        fontSize: '1.85rem',
-                        lineHeight: '2.4rem',
+                        fontSize: 'var(--mushaf7-font-size, 1.85rem)',
+                        lineHeight: 'var(--mushaf7-line-height, 2.4rem)',
                         transformOrigin: 'right center',
-                        transform: lineScale && lineScale > 1 ? `scaleX(${lineScale})` : undefined
+                        transform: lineScale && Math.abs(lineScale - 1) > 0.005 ? `scaleX(${lineScale})` : undefined
                       }}
                     >
                       {words.map((w, wIdx) => {
@@ -450,7 +454,7 @@ export function Mushaf7View({
                                   display: 'inline',
                                   color: isPlayingAyah ? 'var(--primary)' : '#b38b4d',
                                   cursor: 'pointer',
-                                  fontSize: '1.75rem',
+                                  fontSize: 'calc(var(--mushaf7-font-size, 1.85rem) * 0.95)',
                                   verticalAlign: 'middle',
                                   transition: 'transform 0.15s ease'
                                 }}
