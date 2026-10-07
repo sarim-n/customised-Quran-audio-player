@@ -56,7 +56,7 @@
   --mushaf7-line-height: 2.65rem;
   --mushaf7-min-height: 2.8rem;
   --mushaf7-word-spacing: -0.09em;
-  --mushaf7-divider: rgba(179, 139, 77, 0.22);
+  --mushaf7-divider: #000000;
   --mushaf7-card-padding: 1.25rem 1.5rem 1.5rem;
   --mushaf7-frame-padding: 0.85rem 1.25rem 1rem;
   --mushaf7-line-padding: 0.15rem 0.5rem;
@@ -68,6 +68,7 @@
     --mushaf7-line-height: clamp(1.45rem, 6.2vw, 2.65rem);
     --mushaf7-min-height: clamp(1.55rem, 6.5vw, 2.8rem);
     --mushaf7-word-spacing: -0.07em;
+    --mushaf7-divider: #000000;
     --mushaf7-card-padding: 0.5rem 0.5rem 0.75rem;
     --mushaf7-frame-padding: 0.35rem 0.45rem 0.55rem;
     --mushaf7-line-padding: 0.08rem 0.2rem;
@@ -76,7 +77,7 @@
 
 [data-theme="dark"] {
   /* Dark Theme: Serene Emerald Charcoal */
-  --mushaf7-divider: rgba(212, 175, 55, 0.2);
+  --mushaf7-divider: #000000;
   --bg-app: #0e1513;
   --bg-surface: #141f1c;
   --bg-surface-elevated: #1a2723;
@@ -1210,3 +1211,42 @@ button, input, select, textarea {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }
+
+/* Mobile Tap Navigation Badges for Mushaf 7 */
+.mushaf7-mobile-tap-badge {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mushaf7-mobile-tap-badge {
+    display: flex;
+    align-items: center;
+    justifyContent: center;
+    position: fixed;
+    bottom: 90px;
+    width: 32px;
+    height: 48px;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    color: #ffffff;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border-radius: 8px;
+    z-index: 50;
+    cursor: pointer;
+    opacity: 0.5;
+    user-select: none;
+    transition: opacity 0.2s, background 0.2s;
+  }
+  .mushaf7-mobile-tap-badge:active {
+    opacity: 0.9;
+    background: rgba(0, 0, 0, 0.75);
+  }
+  .mushaf7-mobile-tap-left {
+    left: 8px;
+  }
+  .mushaf7-mobile-tap-right {
+    right: 8px;
+  }
+}
+

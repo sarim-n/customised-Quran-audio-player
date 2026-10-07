@@ -164,6 +164,28 @@ export function Mushaf7View({
     }
   };
 
+  // Mobile side tap handler: right side -> prev page, left side -> next page
+  const handleMobileScreenClick = (e) => {
+    if (typeof window !== 'undefined' && window.innerWidth > 768) return;
+
+    if (e.target.closest('button, select, input, a, .mushaf-nav-bar, .mushaf7-ayah-marker')) {
+      return;
+    }
+
+    const clickX = e.clientX;
+    const screenWidth = window.innerWidth;
+
+    if (clickX > screenWidth / 2) {
+      if (pageNumber > 1) {
+        handlePrevPage();
+      }
+    } else {
+      if (pageNumber < maxAllowedPage) {
+        handleNextPage();
+      }
+    }
+  };
+
   const isVersePlaying = (surahNumber, numberInSurah) => {
     return isPlaying && currentAyah &&
       Number(currentAyah.surahNumber) === Number(surahNumber) &&
@@ -256,7 +278,7 @@ export function Mushaf7View({
             <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Juz:</span>
             <select
               className="surah-select"
-              value={1}
+              value={pageData?.primaryJuz || 1}
               onChange={e => {
                 const jNum = parseInt(e.target.value, 10);
                 const p = getMushaf7PageForJuz(jNum);
@@ -266,7 +288,7 @@ export function Mushaf7View({
               id="select-mushaf7-juz"
               title="Jump to 16-Line Mushaf starting page for selected Juz/Para"
             >
-              {(INDOPAK_JUZ_METADATA || []).slice(0, 3).map(j => (
+              {(INDOPAK_JUZ_METADATA || []).map(j => (
                 <option key={j.id} value={j.id}>
                   Juz {j.id} ({j.transliteration} - {j.name})
                 </option>
@@ -289,7 +311,7 @@ export function Mushaf7View({
               id="select-mushaf7-surah"
               title="Jump to 16-Line Mushaf starting page for selected Surah"
             >
-              {SURAHS.slice(0, 3).map(s => (
+              {SURAHS.map(s => (
                 <option key={s.number} value={s.number}>
                   {s.number}. {s.englishName} ({s.name})
                 </option>
@@ -320,6 +342,7 @@ export function Mushaf7View({
       {!loading && !error && pageData && (
         <div
           className="mushaf7-page-card"
+          onClick={handleMobileScreenClick}
           style={{
             position: 'relative',
             background: 'var(--bg-surface)',
@@ -329,7 +352,8 @@ export function Mushaf7View({
             padding: 'var(--mushaf7-card-padding, 1.25rem 1.5rem 1.5rem)',
             margin: '0 auto',
             maxWidth: '720px',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            cursor: 'default'
           }}
           id={`mushaf7-page-${pageNumber}`}
         >
@@ -379,7 +403,7 @@ export function Mushaf7View({
                 display: 'flex',
                 flexDirection: 'column',
                 direction: 'rtl',
-                gap: '0.2rem',
+                gap: '0px',
                 userSelect: 'text'
               }}
             >
@@ -397,15 +421,16 @@ export function Mushaf7View({
                       direction: 'rtl',
                       textAlign: 'right',
                       width: '100%',
-                      minHeight: 'var(--mushaf7-min-height, 2.55rem)',
-                      lineHeight: 'var(--mushaf7-line-height, 2.4rem)',
-                      padding: 'var(--mushaf7-line-padding, 0.1rem 0.5rem)',
-                      borderRadius: '4px',
-                      borderBottom: lineObj.lineNumber < 16 ? '1px solid var(--mushaf7-divider, var(--border-subtle))' : 'none',
+                      minHeight: 'var(--mushaf7-min-height, 2.8rem)',
+                      lineHeight: 'var(--mushaf7-line-height, 2.65rem)',
+                      padding: 'var(--mushaf7-line-padding, 0.15rem 0.5rem)',
+                      borderRadius: '0px',
+                      borderBottom: lineObj.lineNumber < 16 ? '1px solid var(--mushaf7-divider, #000000)' : 'none',
                       background: lineHasPlayingWord ? 'rgba(5, 150, 105, 0.12)' : 'transparent',
                       transition: 'background 0.2s ease',
                       position: 'relative',
-                      overflow: 'hidden'
+                      overflow: 'hidden',
+                      boxSizing: 'border-box'
                     }}
                     title={firstWord ? `Line ${lineObj.lineNumber} • Ayah ${firstWord.verseKey}` : `Line ${lineObj.lineNumber}`}
                   >
@@ -473,7 +498,11 @@ export function Mushaf7View({
                             {wIdx > 0 ? ' ' : null}
                             <span
                               className={`mushaf7-word ${isPlayingAyah ? 'word-active' : ''} ${weakSpot ? 'word-weak-spot' : ''}`}
-                              onClick={() => {
+                              onClick={(e) => {
+                                if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+                                  handleMobileScreenClick(e);
+                                  return;
+                                }
                                 if (onPlayAyah) {
                                   onPlayAyah({
                                     surahNumber: w.surahNumber,
@@ -545,6 +574,22 @@ export function Mushaf7View({
           </div>
         </div>
       )}
+
+      {/* Mobile Touch Indicators */}
+      <div
+        className="mushaf7-mobile-tap-badge mushaf7-mobile-tap-left"
+        onClick={() => pageNumber < maxAllowedPage && handleNextPage()}
+        title="Next Page (Left side)"
+      >
+        ‹
+      </div>
+      <div
+        className="mushaf7-mobile-tap-badge mushaf7-mobile-tap-right"
+        onClick={() => pageNumber > 1 && handlePrevPage()}
+        title="Previous Page (Right side)"
+      >
+        ›
+      </div>
     </div>
   );
 }

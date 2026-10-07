@@ -9,10 +9,10 @@ import { PlayerBar } from './components/PlayerBar';
 import { GoToAyahModal } from './components/GoToAyahModal';
 import { OfflineModal } from './components/OfflineModal';
 import { WeakSpotsModal } from './components/WeakSpotsModal';
-import { fetchSurah, fetchJuz, getMushafPageForAyah } from './services/quranApi';
+import { fetchSurah, fetchJuz, getMushafPageForAyah, getMushafPageForSurah, getMushafPageForJuz } from './services/quranApi';
 import { MushafView } from './components/MushafView';
 import { Mushaf7View } from './components/Mushaf7View';
-import { getMushaf7PageForAyah, MUSHAF_7_TOTAL_PAGES, MUSHAF_7_AVAILABLE_PAGES } from './services/mushaf7Service';
+import { getMushaf7PageForAyah, getMushaf7PageForSurah, getMushaf7PageForJuz, MUSHAF_7_TOTAL_PAGES } from './services/mushaf7Service';
 import { SURAHS, INDOPAK_JUZ_METADATA, MADANI_JUZ_METADATA } from './data/quranMeta';
 import { useQuranAudio } from './hooks/useQuranAudio';
 import { isItemDownloaded } from './services/offlineStorage';
@@ -588,6 +588,22 @@ export function App() {
   // Surah Selection Handler (navigates to top immediately)
   const handleSelectSurah = (surahNum) => {
     stopPlayback();
+    if (viewMode === 'mushaf7') {
+      const page = getMushaf7PageForSurah(surahNum);
+      setMushaf7PageNumber(page);
+      localStorage.setItem('quran_mushaf7_page', page.toString());
+      window.history.replaceState(null, '', `#mushaf7=${page}`);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      return;
+    }
+    if (viewMode === 'taj') {
+      const page = getMushafPageForSurah(surahNum);
+      setTajPageNumber(page);
+      localStorage.setItem('quran_taj_page', page.toString());
+      window.history.replaceState(null, '', `#taj=${page}`);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      return;
+    }
     setViewMode('surah');
     setCurrentSurahNumber(surahNum);
     localStorage.setItem('quran_view_mode', 'surah');
@@ -601,6 +617,22 @@ export function App() {
   // Juz Selection Handler (navigates to top immediately)
   const handleSelectJuz = (juzNum) => {
     stopPlayback();
+    if (viewMode === 'mushaf7') {
+      const page = getMushaf7PageForJuz(juzNum);
+      setMushaf7PageNumber(page);
+      localStorage.setItem('quran_mushaf7_page', page.toString());
+      window.history.replaceState(null, '', `#mushaf7=${page}`);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      return;
+    }
+    if (viewMode === 'taj') {
+      const page = getMushafPageForJuz(juzNum);
+      setTajPageNumber(page);
+      localStorage.setItem('quran_taj_page', page.toString());
+      window.history.replaceState(null, '', `#taj=${page}`);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      return;
+    }
     setViewMode('juz');
     setCurrentJuzNumber(juzNum);
     localStorage.setItem('quran_view_mode', 'juz');
