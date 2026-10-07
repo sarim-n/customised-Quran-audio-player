@@ -183,7 +183,7 @@ export function Mushaf7View({
   };
 
   return (
-    <div className="mushaf7-viewer-wrapper" style={{ maxWidth: '680px', margin: '0 auto', padding: '0 0.5rem 3rem' }}>
+    <div className="mushaf7-viewer-wrapper" style={{ maxWidth: '720px', margin: '0 auto', padding: '0 0.5rem 3rem' }}>
       {/* Top Navigation & Selector Bar */}
       <div
         className="mushaf-nav-bar"
@@ -328,7 +328,7 @@ export function Mushaf7View({
             boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12)',
             padding: 'var(--mushaf7-card-padding, 1.25rem 1.5rem 1.5rem)',
             margin: '0 auto',
-            maxWidth: '680px',
+            maxWidth: '720px',
             overflow: 'hidden'
           }}
           id={`mushaf7-page-${pageNumber}`}
@@ -379,7 +379,7 @@ export function Mushaf7View({
                 display: 'flex',
                 flexDirection: 'column',
                 direction: 'rtl',
-                gap: '0.45rem',
+                gap: '0.2rem',
                 userSelect: 'text'
               }}
             >
@@ -400,7 +400,8 @@ export function Mushaf7View({
                       minHeight: 'var(--mushaf7-min-height, 2.55rem)',
                       lineHeight: 'var(--mushaf7-line-height, 2.4rem)',
                       padding: 'var(--mushaf7-line-padding, 0.1rem 0.5rem)',
-                      borderRadius: '6px',
+                      borderRadius: '4px',
+                      borderBottom: lineObj.lineNumber < 16 ? '1px solid var(--mushaf7-divider, var(--border-subtle))' : 'none',
                       background: lineHasPlayingWord ? 'rgba(5, 150, 105, 0.12)' : 'transparent',
                       transition: 'background 0.2s ease',
                       position: 'relative',
@@ -424,6 +425,7 @@ export function Mushaf7View({
                         fontFamily: 'var(--font-indopak)',
                         fontSize: 'var(--mushaf7-font-size, 1.85rem)',
                         lineHeight: 'var(--mushaf7-line-height, 2.4rem)',
+                        wordSpacing: 'var(--mushaf7-word-spacing, -0.09em)',
                         transformOrigin: 'right center',
                         transform: lineScale && Math.abs(lineScale - 1) > 0.005 ? `scaleX(${lineScale})` : undefined
                       }}
